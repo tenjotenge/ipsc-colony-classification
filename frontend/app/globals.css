@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 224 71% 4%;
+  --foreground: 213 31% 91%;
+  --card: 220 30% 8%;
+  --card-foreground: 213 31% 91%;
+  --popover: 220 30% 8%;
+  --popover-foreground: 213 31% 91%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 215 25% 12%;
+  --secondary-foreground: 213 31% 91%;
+  --muted: 215 25% 12%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 215 25% 12%;
+  --accent-foreground: 213 31% 91%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 213 31% 91%;
+  --border: 215 25% 16%;
+  --input: 215 25% 16%;
+  --ring: 224 76% 48%;
+  --radius: 0.375rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scientific instrumentation scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--secondary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Flat panel surfaces - scientific instrumentation aesthetic */
+.panel {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+
+.panel-header {
+  background: hsl(var(--secondary));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+/* Subtle borders for visual hierarchy */
+.border-subtle {
+  border-color: hsl(var(--border) / 0.7);
+}
+
+.border-strong {
+  border-color: hsl(var(--border) / 1.2);
+}
