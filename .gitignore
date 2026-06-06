@@ -78,3 +78,6 @@ wandb/
 # Cache
 .cache/
 .parquet_cache/
+
+# AI documentation (internal scaffolding)
+docs/ai/
