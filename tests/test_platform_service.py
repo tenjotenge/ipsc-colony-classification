@@ -109,6 +109,18 @@ class PlatformServiceTests(unittest.TestCase):
         self.assertEqual(sorted(outcomes), [201, 400])
         self.assertEqual(len(self.store.list_jobs(field["id"])), 1)
 
+    def test_concurrent_workers_claim_distinct_jobs_and_report_queue(self):
+        fields = [self.upload()[1] for _ in range(3)]
+        jobs = [self.store.add_job(field["id"]) for field in fields]
+        status, summary = self.request("GET", "/api/status")
+        self.assertEqual(status, 200)
+        self.assertEqual(summary["jobs"], {"queued": 3, "running": 0, "succeeded": 0, "failed": 0})
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            claimed = list(pool.map(lambda _: self.store.claim_job(), range(3)))
+        self.assertEqual({job["id"] for job in claimed}, {job["id"] for job in jobs})
+        self.assertEqual(self.request("GET", "/api/status")[1]["jobs"]["running"], 3)
+        self.assertIsNone(self.store.claim_job())
+
     def test_encoded_unicode_filename(self):
         buffer = io.BytesIO()
         Image.new("L", (8, 8), color=100).save(buffer, format="PNG")

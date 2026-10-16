@@ -18,6 +18,12 @@ export interface JobRecord {
   finished_at: string | null;
 }
 
+export interface PlatformStatus {
+  jobs: Record<"queued" | "running" | "succeeded" | "failed", number>;
+  workers: number;
+  worker_available: boolean;
+}
+
 export interface ColonyRecord {
   colony_id: string;
   x: number;

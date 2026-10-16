@@ -80,7 +80,7 @@ def worker_loop(store: Store, model_path: Path, stop: threading.Event) -> None:
             stop.wait(1)
 
 
-def make_handler(store: Store, api_token: str | None = None, ready_check=None):
+def make_handler(store: Store, api_token: str | None = None, ready_check=None, worker_count: int = 1):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ColonyAtlas/0.2"
 
@@ -152,6 +152,10 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None):
                 return
             if path == "/api/jobs":
                 self.reply(200, {"jobs": store.list_jobs()})
+                return
+            if path == "/api/status":
+                self.reply(200, {"jobs": store.job_counts(), "workers": worker_count,
+                                 "worker_available": ready_check() if ready_check else True})
                 return
             match = FIELD_ROUTE.fullmatch(path)
             if not match:
@@ -276,7 +280,10 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None):
     return Handler
 
 
-def serve(host: str = "127.0.0.1", port: int = 8765, root: Path | None = None, start_worker: bool = True) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8765, root: Path | None = None,
+          start_worker: bool = True, workers: int = 1) -> None:
+    if not 1 <= workers <= 4:
+        raise ValueError("workers must be between 1 and 4")
     api_token = os.environ.get("ATLAS_API_TOKEN") or None
     if host not in {"127.0.0.1", "::1", "localhost"} and not api_token:
         raise SystemExit("ATLAS_API_TOKEN is required when binding beyond localhost")
@@ -289,11 +296,15 @@ def serve(host: str = "127.0.0.1", port: int = 8765, root: Path | None = None, s
         raise SystemExit("Another service already uses this data directory") from exc
     store = Store(data_root)
     stop = threading.Event()
-    worker = None
+    threads: list[threading.Thread] = []
     if start_worker:
-        worker = threading.Thread(target=worker_loop, args=(store, PROJECT_ROOT / "model.pth", stop), daemon=True)
-        worker.start()
-    server = ThreadingHTTPServer((host, port), make_handler(store, api_token, lambda: worker is None or worker.is_alive()))
+        for index in range(workers):
+            worker = threading.Thread(target=worker_loop, args=(store, PROJECT_ROOT / "model.pth", stop),
+                                      name=f"analysis-{index + 1}", daemon=True)
+            worker.start()
+            threads.append(worker)
+    server = ThreadingHTTPServer((host, port), make_handler(
+        store, api_token, lambda: all(thread.is_alive() for thread in threads), len(threads)))
     server.daemon_threads = True
     LOG.info("Colony Atlas API listening on http://%s:%s", host, port)
     try:
@@ -311,6 +322,8 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--data-dir", type=Path, default=PROJECT_ROOT / "platform_data")
+    parser.add_argument("--workers", type=int, choices=range(1, 5), default=1,
+                        help="parallel analysis workers (1-4; default 1)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    serve(args.host, args.port, args.data_dir)
+    serve(args.host, args.port, args.data_dir, workers=args.workers)

@@ -117,6 +117,13 @@ class Store:
                 rows = db.execute("SELECT * FROM jobs ORDER BY created_at DESC, rowid DESC")
             return [dict(row) for row in rows]
 
+    def job_counts(self) -> dict[str, int]:
+        counts = {status: 0 for status in ("queued", "running", "succeeded", "failed")}
+        with self.connect() as db:
+            for status, count in db.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status"):
+                counts[status] = count
+        return counts
+
     def claim_job(self) -> dict | None:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

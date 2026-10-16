@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FieldRecord, platformJson } from "@/lib/platform/types";
+import { FieldRecord, PlatformStatus, platformJson } from "@/lib/platform/types";
 
 export default function InboxPage() {
   const [fields, setFields] = useState<FieldRecord[]>([]);
+  const [status, setStatus] = useState<PlatformStatus | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const result = await platformJson<{ fields: FieldRecord[] }>("fields");
+      const [result, platformStatus] = await Promise.all([
+        platformJson<{ fields: FieldRecord[] }>("fields"), platformJson<PlatformStatus>("status"),
+      ]);
       setFields(result.fields);
+      setStatus(platformStatus);
       setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load fields");
@@ -59,6 +63,10 @@ export default function InboxPage() {
         </div>
       </section>
       {error && <div role="alert" className="mt-5 rounded-lg border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div>}
+      {status && <section aria-label="Analysis queue" className="mt-5 flex flex-wrap gap-x-5 gap-y-2 rounded-xl border border-white/10 bg-white/[0.025] px-5 py-3 text-xs text-slate-300">
+        <span>{status.jobs.queued} queued</span><span>{status.jobs.running} running</span><span>{status.jobs.failed} failed</span>
+        <span className="ml-auto text-slate-500">{status.workers} {status.workers === 1 ? "worker" : "workers"}{!status.worker_available && " · unavailable"}</span>
+      </section>}
       <section className="mt-9"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Fields</h2><span className="text-xs text-slate-500">{fields.length} imported</span></div>
         {fields.length === 0 ? <div className="rounded-xl border border-dashed border-white/15 p-10 text-center text-sm text-slate-400">No fields yet. Import an image to begin.</div> :
           <div className="space-y-2">{fields.map((field) => <Link key={field.id} href={`/fields/${field.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 hover:border-teal-300/40 hover:bg-white/[0.05]">
