@@ -24,7 +24,7 @@ export const CalibratedScoreBadge: React.FC<CalibratedScoreBadgeProps> = ({
   };
 
   return (
-    <div className={`px-1.5 py-0.5 rounded border text-xs font-medium ${getColor()}`}>
+    <div className={`rounded border font-medium ${sizeClasses[size]} ${getColor()}`}>
       {score.toFixed(2)}
     </div>
   );

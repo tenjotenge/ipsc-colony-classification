@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { NormalizedColony } from "@/lib/normalizers/types";
 
 // Mock API function - replace with actual API call
-async function fetchColonies(analysisId?: string): Promise<NormalizedColony[]> {
+async function fetchColonies(_analysisId?: string): Promise<NormalizedColony[]> {
   // TODO: Replace with actual API call
   // const url = analysisId ? `/api/analyses/${analysisId}/colonies` : '/api/colonies';
   // const response = await fetch(url);

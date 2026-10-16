@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { NormalizedAnalysis } from "@/lib/normalizers/types";
 
 // Mock API function - replace with actual API call
-async function fetchAnalyses(runId?: string): Promise<NormalizedAnalysis[]> {
+async function fetchAnalyses(_runId?: string): Promise<NormalizedAnalysis[]> {
   // TODO: Replace with actual API call
   // const url = runId ? `/api/runs/${runId}/analyses` : '/api/analyses';
   // const response = await fetch(url);

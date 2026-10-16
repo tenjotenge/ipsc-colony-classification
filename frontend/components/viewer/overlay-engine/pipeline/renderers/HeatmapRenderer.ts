@@ -24,7 +24,7 @@ export function renderHeatmap(
   context: RenderContext
 ): void {
   const heatmapData = data as unknown as HeatmapData;
-  const { coordinateSystem, viewportBounds } = context;
+  const { viewportBounds } = context;
 
   // TODO: Implement actual heatmap image rendering
   // This requires:

@@ -322,12 +322,12 @@ export class CoordinateSystem {
 
   // Placeholder for future tile-based coordinate system
   // This will integrate with OpenSeadragon's tile structure
-  imageToTile(coords: ImageCoords, level: number): TileCoords {
+  imageToTile(_coords: ImageCoords, _level: number): TileCoords {
     // TODO: Implement when tile system is integrated
     throw new Error("Tile coordinates not yet implemented");
   }
 
-  tileToImage(tile: TileCoords): ImageCoords {
+  tileToImage(_tile: TileCoords): ImageCoords {
     // TODO: Implement when tile system is integrated
     throw new Error("Tile coordinates not yet implemented");
   }

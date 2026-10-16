@@ -11,7 +11,6 @@ import {
   CoordinateSystem,
   createCoordinateSystem,
   type ImageSize,
-  type ViewportState as CoordinateViewportState,
 } from "@/lib/coordinates/CoordinateSystem";
 
 export interface ViewportState {

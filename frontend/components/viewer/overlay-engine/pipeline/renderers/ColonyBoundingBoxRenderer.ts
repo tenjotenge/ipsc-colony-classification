@@ -5,7 +5,6 @@
  */
 
 import type { RenderContext, LayerData } from "../RenderLayer";
-import type { CoordinateSystem } from "@/lib/coordinates/CoordinateSystem";
 
 export interface ColonyData {
   colonies: Array<{

@@ -1,4 +1,4 @@
-import { NormalizedAnalysis, NormalizedColony, NormalizedHeatmap, NormalizedValidation, NormalizedRetrieval } from "./types";
+import { NormalizedAnalysis, NormalizedColony, NormalizedHeatmap } from "./types";
 import { normalizeValidation } from "./normalizeValidation";
 import { normalizeRetrieval } from "./normalizeRetrieval";
 

@@ -15,8 +15,6 @@ export const RetrievalEvidenceCard: React.FC<RetrievalEvidenceCardProps> = ({
   colonyId,
   similarity,
   calibratedScore,
-  domain,
-  imageUrl,
 }) => {
   return (
     <div className="p-3 rounded border border-border bg-card hover:bg-secondary transition-colors">

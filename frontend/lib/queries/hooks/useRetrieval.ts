@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { NormalizedRetrieval } from "@/lib/normalizers/types";
 
 // Mock API function - replace with actual API call
-async function fetchRetrieval(colonyId: string): Promise<NormalizedRetrieval | null> {
+async function fetchRetrieval(_colonyId: string): Promise<NormalizedRetrieval | null> {
   // TODO: Replace with actual API call
   // const response = await fetch(`/api/colonies/${colonyId}/retrieval`);
   // return response.json();

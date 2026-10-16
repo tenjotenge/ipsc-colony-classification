@@ -211,7 +211,7 @@ export class RenderPipeline {
   // Viewport Updates
   // ============================================================================
 
-  updateViewport(viewportBounds: { x: number; y: number; width: number; height: number }, zoom: number): void {
+  updateViewport(_viewportBounds: { x: number; y: number; width: number; height: number }, _zoom: number): void {
     // Update coordinate system
     // Note: CoordinateSystem handles its own viewport updates
     // This is a placeholder for future viewport-specific logic

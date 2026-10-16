@@ -6,6 +6,9 @@ export default defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    rules: { "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }] },
+  },
+  {
     files: ["components/review/**", "components/viewer/overlay-engine/**", "lib/artifacts/**", "lib/normalizers/**"],
     rules: { "@typescript-eslint/no-explicit-any": "off" },
   },

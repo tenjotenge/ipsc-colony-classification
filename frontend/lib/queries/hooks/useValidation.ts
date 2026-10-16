@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { NormalizedValidation } from "@/lib/normalizers/types";
 
 // Mock API function - replace with actual API call
-async function fetchValidation(analysisId: string): Promise<NormalizedValidation | null> {
+async function fetchValidation(_analysisId: string): Promise<NormalizedValidation | null> {
   // TODO: Replace with actual API call
   // const response = await fetch(`/api/analyses/${analysisId}/validation`);
   // return response.json();

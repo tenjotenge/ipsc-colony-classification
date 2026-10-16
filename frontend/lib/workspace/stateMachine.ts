@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { WorkspaceMode, WORKSPACE_MODES, WorkspaceModeConfig } from "./modes";
+import { WorkspaceMode, WORKSPACE_MODES } from "./modes";
 
 interface WorkspaceState {
   mode: WorkspaceMode;
@@ -56,7 +56,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set: (partial: Partial<
   },
 
   setMode: (mode) => {
-    set((state) => ({
+    set(() => ({
       mode,
       overlayVisibility: WORKSPACE_MODES[mode].overlayDefaults,
     }));

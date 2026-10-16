@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo } from "react";
-import { overlayRegistry, OverlayType } from "./OverlayRegistry";
+import React, { useEffect, useRef } from "react";
+import { overlayRegistry } from "./OverlayRegistry";
 import { renderScheduler } from "./RenderScheduler";
-import { ViewportTransformer, ViewportState } from "./ViewportTransformer";
+import { ViewportState } from "./ViewportTransformer";
 import { CoordinateSystem, createCoordinateSystem } from "@/lib/coordinates/CoordinateSystem";
 import { RenderPipeline, RenderLayer, LayerTypes } from "./pipeline";
 import {

@@ -43,7 +43,7 @@ export const useUIStore = create<UIState>((set) => ({
   },
 
   setMode: (mode) => {
-    set((state) => ({
+    set(() => ({
       mode,
       overlayVisibility: WORKSPACE_MODES[mode].overlayDefaults,
     }));
