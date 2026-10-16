@@ -1,19 +1,23 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
-import { MicroscopyViewer } from "@/components/viewer/MicroscopyViewer";
 import { ReviewWorkflowPanel } from "@/components/review";
 import { useWorkspace } from "@/lib/workspace";
 import { useReviewWorkflowStore } from "@/lib/review/ReviewWorkflowStore";
+
+const MicroscopyViewer = dynamic(
+  () => import("@/components/viewer/MicroscopyViewer").then((module) => module.MicroscopyViewer),
+  { ssr: false }
+);
 
 export default function WorkspacePage() {
   const { mode } = useWorkspace();
   const { startReview, isReviewing } = useReviewWorkflowStore();
 
-  // Mock image URL - replace with actual backend URL
-  const mockImageUrl = "https://via.placeholder.com/2000x2000.png";
+  const mockImageUrl = "/demo-plate.png";
 
   const handleStartReview = () => {
     // Mock queue - replace with actual colony IDs from analysis
@@ -37,6 +41,9 @@ export default function WorkspacePage() {
                   Mode-specific controls will appear here.
                 </p>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Demo mode: synthetic plate image and sample scores.
+              </p>
               <div className="p-2 bg-secondary rounded border border-border">
                 <div className="font-mono text-[10px] text-muted-foreground mb-1">Current Mode</div>
                 <div className="text-xs font-medium text-foreground capitalize">{mode}</div>

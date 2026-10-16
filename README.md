@@ -189,26 +189,27 @@ train → embed → calibrate → analyze → rebuild hard examples → validate
 
 ### Linux testing
 
-This checkout uses a Python command-line pipeline and a separate Next.js frontend. Both can run on Linux; there is no desktop launcher or API server to start. The frontend currently shows mock image and colony data, so it does not display pipeline results yet. The documented advanced validation and diagnostics modules are not present in this checkout.
+This checkout uses a Python command-line pipeline and a separate Next.js frontend. Both can run on Linux; there is no native desktop app or API server to start. The frontend currently shows a synthetic image and mock colony data, so it does not display pipeline results yet. The documented advanced validation and diagnostics modules are not present in this checkout.
 
-On Linux, use Python 3.12 for the backend. With `uv` installed:
+On Linux, use Python 3.12 for the backend. With `uv` installed, these commands install CPU-only PyTorch for testing without CUDA downloads:
 
 ```bash
 uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -r requirements.txt
+uv pip install --python .venv/bin/python numpy opencv-python pillow
+uv pip install --python .venv/bin/python torch torchvision --index-url https://download.pytorch.org/whl/cpu
 mkdir -p raw
-# Copy microscopy PNG, JPG, or TIFF images into raw/
-.venv/bin/python run_pipeline.py --check
-.venv/bin/python run_pipeline.py
+cp samples/smoke.png raw/  # Synthetic smoke test; replace with real microscopy images later
+./linux-v1/run.sh check
+IPSC_PRETRAINED_WEIGHTS=0 ./linux-v1/run.sh pipeline
 ```
 
-Training writes `model.pth`. To analyze a separate plate folder after training:
+Training writes `model.pth`. The smoke image only checks execution; its model and scores have no scientific meaning. For real training, put microscopy PNG, JPG, or TIFF images in `raw/` and run `./linux-v1/run.sh pipeline` without `IPSC_PRETRAINED_WEIGHTS=0`. To analyze a separate plate folder after training:
 
 ```bash
-.venv/bin/python run_analysis.py --input /path/to/plate-images --output analysis_output
+./linux-v1/run.sh analysis /path/to/plate-images analysis_output
 ```
 
-For the frontend, run `cd frontend && npm ci && npm run dev` and open `http://localhost:3000`. The frontend can be tested independently of the Python pipeline. See [frontend/README.md](frontend/README.md) for its current scope.
+For the frontend, run `cd frontend && npm ci`, then `./linux-v1/run.sh frontend` from the project root and open `http://127.0.0.1:3000`. The frontend uses a bundled synthetic plate image and controls, and can be tested independently of the Python pipeline. See [frontend/README.md](frontend/README.md) for its current scope.
 
 If the package install cannot reach PyPI or npm, dependency installation must wait for network access or a complete local package cache.
 

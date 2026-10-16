@@ -299,6 +299,7 @@ def main() -> None:
     manual_labels_path = root / MANUAL_LABELS_PATH
     model_path = root / MODEL_PATH
     train_marker = marker_path(root, STAGE_NAME)
+    pretrained = os.environ.get("IPSC_PRETRAINED_WEIGHTS", "1") != "0"
 
     if not images_dir.exists() or not labels_path.exists():
         print("train: dataset missing, skipping")
@@ -315,6 +316,7 @@ def main() -> None:
         "batch_size": 32,
         "optimizer": "adam",
         "architecture": "resnet18_1ch",
+        "pretrained_weights": pretrained,
         "hybrid_training": True,
         "manual_override": True,
         "manual_loss_weight": 5.0,
@@ -341,7 +343,9 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if device.type == "cuda":
         torch.backends.cudnn.benchmark = True
-    num_workers = 0 if os.name == "nt" else min(8, os.cpu_count() or 0)
+    # The default avoids multiprocessing sockets, which are unavailable in some
+    # Linux containers and restricted desktop sessions.
+    num_workers = max(0, min(int(os.environ.get("IPSC_NUM_WORKERS", "0")), len(dataset)))
     batch_size = 32
     sampler = WeightedRandomSampler(
         weights=torch.tensor(dataset.sampling_weights(), dtype=torch.double),
@@ -357,7 +361,7 @@ def main() -> None:
         persistent_workers=num_workers > 0,
     )
 
-    model = build_model().to(device)
+    model = build_model(pretrained=pretrained).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
     model.train()

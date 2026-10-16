@@ -33,7 +33,7 @@ npm install
 npm run dev
 ```
 
-The workspace currently uses placeholder imagery, a mock review queue, and mock metrics. It is suitable for testing the interface on Linux, but it is not connected to the Python analysis output yet.
+The workspace currently uses a bundled synthetic plate image, a mock review queue, and mock metrics. It is suitable for testing the interface on Linux, but it is not connected to the Python analysis output yet. Its demo image and viewer controls are served locally, so the interface does not need Google Fonts, an image CDN, or a placeholder image service.
 
 ## Build
 

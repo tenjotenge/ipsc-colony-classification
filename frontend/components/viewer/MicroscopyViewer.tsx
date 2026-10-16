@@ -33,7 +33,7 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
 
     const viewer = OpenSeadragon({
       element: viewerRef.current,
-      prefixUrl: "https://cdn.jsdelivr.net/npm/openseadragon@4.1.0/build/openseadragon/images/",
+      prefixUrl: "/vendor/openseadragon/images/",
       tileSources: {
         type: "image",
         url: imageUrl,
