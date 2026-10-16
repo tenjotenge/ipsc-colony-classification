@@ -1,0 +1,7 @@
+[Unit]
+Description=Back up Colony Atlas data
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/colony-atlas/backup.env
+ExecStart=/opt/colony-atlas/linux-v1/run.sh backup scheduled --data-dir ${ATLAS_DATA_DIR} --backup-dir ${ATLAS_BACKUP_DIR}

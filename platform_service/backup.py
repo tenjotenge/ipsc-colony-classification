@@ -1,9 +1,8 @@
-"""Offline, integrity-checked backup and restore for a single-site data directory."""
+"""Integrity-checked, online backup and offline restore for one data directory."""
 
 from __future__ import annotations
 
 import argparse
-import fcntl
 import hashlib
 import io
 import json
@@ -12,8 +11,9 @@ import shutil
 import sqlite3
 import tarfile
 import tempfile
-from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 
 def sha256(path: Path) -> str:
@@ -21,15 +21,32 @@ def sha256(path: Path) -> str:
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-@contextmanager
-def exclusive_data_lock(root: Path):
-    root.mkdir(parents=True, exist_ok=True)
-    with (root / ".service.lock").open("w") as handle:
-        try:
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise RuntimeError("Stop the service before backing up or restoring this data directory") from exc
-        yield
+def snapshot_files(root: Path, snapshot: Path) -> dict[str, Path]:
+    """Select immutable blobs visible in the database snapshot."""
+    files = {"atlas.sqlite3": snapshot}
+    with sqlite3.connect(snapshot) as db:
+        image_paths = [row[0] for row in db.execute("SELECT DISTINCT image_path FROM fields")]
+        successful_jobs = [row[0] for row in db.execute("SELECT id FROM jobs WHERE status='succeeded'")]
+    for image_path in image_paths:
+        relative = Path(image_path)
+        if relative.is_absolute() or len(relative.parts) != 2 or relative.parts[0] != "images":
+            raise ValueError(f"Unsafe image path in database: {image_path}")
+        path = root / relative
+        if not path.is_file() or path.is_symlink():
+            raise FileNotFoundError(f"Referenced image is missing: {image_path}")
+        files[relative.as_posix()] = path
+    for job_id in successful_jobs:
+        if len(job_id) != 32 or any(character not in "0123456789abcdef" for character in job_id):
+            raise ValueError(f"Unsafe job ID in database: {job_id}")
+        output_dir = root / "jobs" / job_id / "output"
+        if not output_dir.is_dir() or output_dir.is_symlink():
+            raise FileNotFoundError(f"Completed job output is missing: {job_id}")
+        for path in sorted(output_dir.rglob("*")):
+            if path.is_symlink():
+                raise ValueError(f"Symlink in completed job output: {path}")
+            if path.is_file():
+                files[path.relative_to(root).as_posix()] = path
+    return files
 
 
 def backup(root: Path, output: Path) -> None:
@@ -39,35 +56,29 @@ def backup(root: Path, output: Path) -> None:
         raise FileExistsError(f"Backup already exists: {output}")
     if root == output.parent or root in output.parents:
         raise ValueError("Backup must be written outside the data directory")
-    with exclusive_data_lock(root):
-        if not (root / "atlas.sqlite3").is_file():
-            raise FileNotFoundError("No atlas.sqlite3 found in data directory")
-        with tempfile.TemporaryDirectory() as temporary:
-            snapshot = Path(temporary) / "atlas.sqlite3"
-            with sqlite3.connect(root / "atlas.sqlite3") as source, sqlite3.connect(snapshot) as destination:
-                source.backup(destination)
-            files = {"atlas.sqlite3": snapshot}
-            for directory in ("images", "jobs"):
-                folder = root / directory
-                if folder.exists():
-                    for path in sorted(folder.rglob("*")):
-                        if path.is_file() and not path.is_symlink() and (directory != "jobs" or "output" in path.parts):
-                            files[path.relative_to(root).as_posix()] = path
-            manifest = {name: {"sha256": sha256(path), "size": path.stat().st_size} for name, path in files.items()}
-            output.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=output.parent, delete=False) as temp:
-                temp_path = Path(temp.name)
-            try:
-                with tarfile.open(temp_path, "w:gz") as archive:
-                    payload = json.dumps({"format": 1, "files": manifest}, indent=2).encode("utf-8")
-                    info = tarfile.TarInfo("manifest.json")
-                    info.size = len(payload)
-                    archive.addfile(info, io.BytesIO(payload))
-                    for name, path in files.items():
-                        archive.add(path, arcname=name, recursive=False)
-                os.replace(temp_path, output)
-            finally:
-                temp_path.unlink(missing_ok=True)
+    if not (root / "atlas.sqlite3").is_file():
+        raise FileNotFoundError("No atlas.sqlite3 found in data directory")
+    with tempfile.TemporaryDirectory() as temporary:
+        snapshot = Path(temporary) / "atlas.sqlite3"
+        with sqlite3.connect(root / "atlas.sqlite3") as source, sqlite3.connect(snapshot) as destination:
+            source.backup(destination)
+        files = snapshot_files(root, snapshot)
+        manifest = {name: {"sha256": sha256(path), "size": path.stat().st_size} for name, path in files.items()}
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=output.parent, delete=False) as temp:
+            temp_path = Path(temp.name)
+        try:
+            with tarfile.open(temp_path, "w:gz") as archive:
+                payload = json.dumps({"format": 1, "files": manifest}, indent=2).encode("utf-8")
+                info = tarfile.TarInfo("manifest.json")
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+                for name, path in files.items():
+                    archive.add(path, arcname=name, recursive=False)
+            verified_members(temp_path)
+            os.replace(temp_path, output)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
 
 def verified_members(archive_path: Path) -> list[str]:
@@ -140,6 +151,9 @@ def main() -> None:
     create = subcommands.add_parser("create")
     create.add_argument("--data-dir", type=Path, required=True)
     create.add_argument("--output", type=Path, required=True)
+    scheduled = subcommands.add_parser("scheduled", help="Create a verified, timestamped backup for a timer")
+    scheduled.add_argument("--data-dir", type=Path, required=True)
+    scheduled.add_argument("--backup-dir", type=Path, required=True)
     verify = subcommands.add_parser("verify")
     verify.add_argument("archive", type=Path)
     recover = subcommands.add_parser("restore")
@@ -149,6 +163,11 @@ def main() -> None:
     if args.action == "create":
         backup(args.data_dir, args.output)
         print(f"Created {args.output}")
+    elif args.action == "scheduled":
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        output = args.backup_dir / f"atlas-{stamp}-{uuid4().hex[:8]}.tar.gz"
+        backup(args.data_dir, output)
+        print(f"Created and verified {output}")
     elif args.action == "verify":
         files = verified_members(args.archive)
         print(f"Verified {len(files)} files")

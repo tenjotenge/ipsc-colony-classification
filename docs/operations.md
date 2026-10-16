@@ -23,12 +23,14 @@ Imported images are limited to 100 MB and 100 megapixels. Bytes are streamed to 
 
 ## Back up and restore
 
-Stop the service before backing up. The backup command obtains an exclusive data-directory lock, takes a consistent SQLite snapshot, and archives source images and analysis outputs with SHA-256 checksums. It refuses to overwrite an existing archive.
+Backups can run while the service is active. The command takes a consistent SQLite snapshot, then archives its referenced source images and completed job outputs with SHA-256 checksums. In-progress output is excluded; interrupted jobs are requeued on restore. The command verifies the finished archive and refuses to overwrite one.
 
 ```bash
 ./linux-v1/run.sh backup create --data-dir platform_data --output /secure/backups/atlas-2026-10-16.tar.gz
 ./linux-v1/run.sh backup verify /secure/backups/atlas-2026-10-16.tar.gz
 ```
+
+For a timer or cron job, use `backup scheduled --data-dir platform_data --backup-dir /secure/backups`. It creates a verified archive with a UTC timestamp and unique suffix. To use the supplied systemd units, change the `ExecStart` path in `deploy/systemd/colony-atlas-backup.service` to the absolute checkout path, copy both units to `/etc/systemd/system/`, and create `/etc/colony-atlas/backup.env` containing `ATLAS_DATA_DIR=/absolute/data/path` and `ATLAS_BACKUP_DIR=/secure/backups`. Give that file and backup directory permissions appropriate for the service account. Then run `systemctl daemon-reload`, `systemctl enable --now colony-atlas-backup.timer`, and `systemctl start colony-atlas-backup.service` to confirm a first backup. The timer runs daily and catches missed runs after a restart. Monitor timer failures and free space; archives are never deleted automatically. Keep at least one copy off the host and test a restore periodically.
 
 Restore only into a **new, nonexistent** directory; the archive is verified before files are written and the restored directory is moved into place after extraction:
 
@@ -40,4 +42,4 @@ The archive contains source images, reports, decisions, and job output. It does 
 
 ## Current deployment boundary
 
-The service has an explicit SQLite schema version, durable job and decision records, an optional service token, readiness checks, bounded imports, and an offline backup path. It does not yet have verified user accounts, role-based permissions, automatic backup scheduling, TLS termination, multi-host workers, image pyramids for very large fields, or lab information system integration. Those need to be built and tested with a partner site's infrastructure before shared production use.
+The service has an explicit SQLite schema version, durable job and decision records, an optional service token, readiness checks, bounded imports, and online, integrity-checked backups with an optional timer. It does not yet have verified user accounts, role-based permissions, TLS termination, multi-host workers, image pyramids for very large fields, or lab information system integration. Those need to be built and tested with a partner site's infrastructure before shared production use.

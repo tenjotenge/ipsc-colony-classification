@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Colony Atlas backup
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=colony-atlas-backup.service
+
+[Install]
+WantedBy=timers.target

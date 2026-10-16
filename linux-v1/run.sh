@@ -10,7 +10,7 @@ Usage: linux-v1/run.sh check
        linux-v1/run.sh pipeline
        linux-v1/run.sh analysis INPUT_DIR OUTPUT_DIR
        linux-v1/run.sh service [--data-dir DIR]
-       linux-v1/run.sh backup create|verify|restore ...
+       linux-v1/run.sh backup create|scheduled|verify|restore ...
        linux-v1/run.sh frontend
 EOF
 }
