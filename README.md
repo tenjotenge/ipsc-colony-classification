@@ -2,7 +2,7 @@
 
 An experimental image analysis pipeline for exploring how induced pluripotent stem cell (iPSC) colonies can be ranked from grayscale microscopy images. The repository combines a reproducible Python workflow with a separate, interactive review interface.
 
-The pipeline converts source images, extracts candidate tiles, generates weak training labels, trains a grayscale ResNet18 classifier, and exports ranked colony regions with heatmaps and machine readable reports. The interface demonstrates how those regions could be inspected spatially. It currently uses clearly marked synthetic data; it is not connected to pipeline output.
+The pipeline converts source images, extracts candidate tiles, generates weak training labels, trains a grayscale ResNet18 classifier, and exports ranked colony regions with heatmaps and machine readable reports. A local platform service now connects imported images and analysis output to a simple technician inbox and review screen. The separate visual demo still uses clearly marked synthetic data.
 
 ![Synthetic plate in the colony review workspace](docs/screenshots/colony-workspace.png)
 
@@ -21,7 +21,7 @@ A tile prediction by itself does not tell a reviewer where a colony is or how se
 | Training data | Generates image statistics based weak labels and supports manual label overrides. |
 | Model | Adapts ResNet18 for one channel input and three classes: `bad`, `likely_good`, and `uncertain`. Training combines weighted classification, augmented view consistency, and a pairwise ranking term. |
 | Plate analysis | Predicts tile scores, groups nearby tiles into candidate regions, ranks them, and writes JSON, CSV, heatmap, and overlay files. |
-| Review interface | A Next.js workspace with zoomable plate imagery, selectable candidate boundaries, ranked cards, and local demo review decisions. |
+| Review interface | A Next.js inbox and field review page for importing real images, starting analysis, inspecting candidates, saving decisions, and exporting records. A separate synthetic workspace remains available. |
 
 The stages are separate scripts and leave intermediate artifacts on disk, making it possible to inspect each step. Stage markers skip preprocessing and training work when their inputs and configuration have not changed.
 
@@ -34,6 +34,15 @@ The repository now includes a local HTTP service for importing microscopy fields
 ```
 
 The service listens on `http://127.0.0.1:8765`. `GET /health` checks availability. Its current API accepts raw PNG, JPEG, or TIFF bytes at `POST /api/fields` with an `X-Filename` header; `POST /api/fields/{id}/jobs` queues analysis. `GET /api/fields/{id}/export` returns the field, latest analysis, and decision history. A trained `model.pth` must be installed before analysis jobs can succeed. The service is currently a single-machine research deployment and has no user authentication; do not expose its port on a shared network.
+
+Run the service and frontend in separate terminals:
+
+```bash
+./linux-v1/run.sh service
+./linux-v1/run.sh frontend
+```
+
+The browser opens to the field inbox at `http://127.0.0.1:3000`. Select an image to import it, open the field, run analysis, and record a review decision. The Next.js server forwards `/api/platform/*` to the local Python service; `ATLAS_API_URL` can override its default `http://127.0.0.1:8765` target. The browser never calls the Python service directly.
 
 ```text
 raw/ → processed/ → tiles/ → tiles_clean/ → dataset/ → model.pth
@@ -78,7 +87,7 @@ cd ..
 ./linux-v1/run.sh frontend
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). The UI starts independently of the Python pipeline. `npm run build` in `frontend/` checks its production build.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). The main UI requires the service above. The standalone synthetic demo is at `/workspace`. `npm run build` in `frontend/` checks its production build.
 
 ### Using your own images
 
@@ -105,7 +114,8 @@ The output contains `plate_report.json`, `plate_report.csv`, and image specific 
 
 - Weak labels come from image statistics, which can reflect acquisition conditions rather than colony morphology. Manual or expert labels are needed for meaningful training.
 - There is no held out biological validation, expert agreement study, or cross lab evaluation in this repository. Reported scores must not be interpreted as validated colony quality.
-- The frontend is a standalone synthetic demo. It does not load `plate_report.json` or trained model outputs yet. The validation, calibration, and retrieval modes are interface previews without measured artifacts.
+- The main frontend can display live analysis output and save review decisions. The separate `/workspace` synthetic demo still contains validation, calibration, and retrieval previews without measured artifacts.
+- The local service has no account authentication, permissions, backup automation, or multi-host job coordination yet. Its SQLite and filesystem storage must be backed up together.
 - The analysis uses fixed size, nonoverlapping tiles; its region grouping is a heuristic over nearby tile boxes. It is not colony segmentation.
 - The optional `--debug` analysis path requires a diagnostics module that is not included in this checkout.
 

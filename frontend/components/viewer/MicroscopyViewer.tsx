@@ -10,6 +10,7 @@ import type { DemoColony } from "@/lib/demo/plate";
 
 interface MicroscopyViewerProps {
   imageUrl: string;
+  imageWidth?: number;
   onViewportChange?: (viewport: ViewportState) => void;
   regions?: DemoColony[];
   selectedRegionId?: string;
@@ -19,6 +20,7 @@ interface MicroscopyViewerProps {
 
 export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
   imageUrl,
+  imageWidth = 1024,
   onViewportChange,
   regions = [],
   selectedRegionId,
@@ -94,10 +96,10 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
         viewer.addOverlay({
           element,
           location: new OpenSeadragon.Rect(
-            region.x / 1024,
-            region.y / 1024,
-            region.width / 1024,
-            region.height / 1024
+            region.x / imageWidth,
+            region.y / imageWidth,
+            region.width / imageWidth,
+            region.height / imageWidth
           ),
         });
       }
@@ -169,7 +171,7 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
     return () => {
       viewer.destroy();
     };
-  }, [imageUrl, onViewportChange, regions]);
+  }, [imageUrl, imageWidth, onViewportChange, regions]);
 
   useEffect(() => {
     const container = viewerRef.current;
