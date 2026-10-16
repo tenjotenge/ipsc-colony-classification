@@ -1,58 +1,16 @@
-# iPSC Colony Analysis Frontend
+# Colony Atlas interface
 
-Scientific microscopy analysis workstation for iPSC colony evaluation.
+This Next.js application is a spatial review prototype for the iPSC Colony Classification pipeline. It provides a zoomable plate viewer, candidate selection, ranking cards, and local review interactions.
 
-## Architecture
+The bundled plate image, candidate boundaries, scores, and notes are synthetic examples. The interface does not yet read reports from the Python pipeline. Validation, calibration, and retrieval screens are previews without measured artifacts.
 
-This is a viewer-centric scientific analysis tool, not a generic dashboard.
-
-### Core Principles
-
-- **Viewer-Centric**: Microscopy viewer is the primary surface
-- **Evidence-Driven**: Every visualization exposes underlying evidence
-- **Uncertainty-First**: Uncertainty is first-class, never hidden
-- **Performance-First**: Canvas/WebGL rendering, viewport-aware culling
-- **Backend-Agnostic**: Normalization layer protects from schema evolution
-
-### Key Subsystems
-
-1. **Workspace State Machine**: Mode-based UI adaptation (explore, review, validate, compare, calibration, retrieval)
-2. **Overlay Engine**: Canvas-based rendering with z-index ordering, viewport transforms, render scheduling
-3. **Normalization Layer**: Transforms raw backend JSON to stable frontend domain models
-4. **Artifact Registry**: Standardized artifact management (images, overlays, reports, embeddings)
-
-## Installation
+## Run
 
 ```bash
-npm install
-```
-
-## Development
-
-```bash
+npm ci
 npm run dev
 ```
 
-The workspace currently uses a bundled synthetic plate image, a mock review queue, and mock metrics. It is suitable for testing the interface on Linux, but it is not connected to the Python analysis output yet. Its demo image and viewer controls are served locally, so the interface does not need Google Fonts, an image CDN, or a placeholder image service.
+Open [http://localhost:3000](http://localhost:3000). Run `npm run build` to verify the production build.
 
-## Build
-
-```bash
-npm run build
-```
-
-## Scientific Language
-
-This interface uses scientific terminology:
-- "calibrated score" (not "AI confidence")
-- "retrieval consistency" (not "smart detection")
-- "perturbation stability" (not "certainty")
-- "domain agreement" (not "cross-domain accuracy")
-- "uncertainty estimate" (not "confidence interval")
-- "consensus rank" (not "model score")
-
-## Design Aesthetic
-
-Target: Scientific instrumentation, microscopy software, radiology review systems.
-
-Avoid: Startup dashboards, consumer AI apps, generic admin panels.
+The viewer uses OpenSeadragon with bundled control icons. Its state and overlays live in `components/viewer/` and `lib/workspace/`; the standalone demonstration fixture is in `lib/demo/plate.ts`.

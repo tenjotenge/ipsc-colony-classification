@@ -3,8 +3,8 @@ import "./globals.css";
 import { QueryProvider } from "@/lib/queries/QueryProvider";
 
 export const metadata: Metadata = {
-  title: "iPSC Colony Analysis",
-  description: "Scientific microscopy analysis workstation",
+  title: "Colony Atlas | iPSC morphology workspace",
+  description: "Spatial review prototype for iPSC colony imagery",
 };
 
 export default function RootLayout({

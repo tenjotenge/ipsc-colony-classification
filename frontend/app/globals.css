@@ -38,6 +38,36 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.colony-overlay {
+  border: 2px solid rgba(94, 234, 212, 0.85);
+  border-radius: 42%;
+  background: rgba(20, 184, 166, 0.045);
+  box-shadow: 0 0 0 1px rgba(3, 16, 28, 0.7), inset 0 0 28px rgba(20, 184, 166, 0.09);
+  cursor: pointer;
+  transition: border-color 160ms, background 160ms, box-shadow 160ms;
+}
+
+.colony-overlay:hover,
+.colony-overlay.selected {
+  border-color: #a7f3d0;
+  background: rgba(20, 184, 166, 0.13);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.28), 0 0 28px rgba(20, 184, 166, 0.28);
+}
+
+.colony-overlay-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  border: 1px solid rgba(94, 234, 212, 0.4);
+  border-radius: 5px;
+  background: rgba(5, 19, 31, 0.94);
+  color: #a7f3d0;
+  font: 600 11px var(--font-sans);
+  letter-spacing: 0.04em;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
 /* Scientific instrumentation scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

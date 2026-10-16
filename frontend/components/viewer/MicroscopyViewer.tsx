@@ -6,18 +6,33 @@ import { OverlayEngine } from "./overlay-engine";
 import { ViewportState } from "./overlay-engine/ViewportTransformer";
 import { useWorkspace } from "@/lib/workspace";
 import { useViewportState, getViewportActions, getViewportState } from "@/lib/viewport/ViewportStore";
+import type { DemoColony } from "@/lib/demo/plate";
 
 interface MicroscopyViewerProps {
   imageUrl: string;
   onViewportChange?: (viewport: ViewportState) => void;
+  regions?: DemoColony[];
+  selectedRegionId?: string;
+  showRegions?: boolean;
+  onRegionSelect?: (id: string) => void;
 }
 
 export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
   imageUrl,
   onViewportChange,
+  regions = [],
+  selectedRegionId,
+  showRegions = true,
+  onRegionSelect,
 }) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const viewerInstanceRef = useRef<OpenSeadragon.Viewer | null>(null);
+  const onRegionSelectRef = useRef(onRegionSelect);
+  const selectedRegionRef = useRef(selectedRegionId);
+  const showRegionsRef = useRef(showRegions);
+  onRegionSelectRef.current = onRegionSelect;
+  selectedRegionRef.current = selectedRegionId;
+  showRegionsRef.current = showRegions;
   const { overlayVisibility } = useWorkspace();
 
   // Use isolated viewport state - this won't trigger React rerenders on pan/zoom
@@ -58,6 +73,35 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
     });
 
     viewerInstanceRef.current = viewer;
+
+    viewer.addHandler("open", () => {
+      for (const region of regions) {
+        const element = document.createElement("button");
+        element.type = "button";
+        element.className = "colony-overlay";
+        if (region.id === selectedRegionRef.current) element.classList.add("selected");
+        if (!showRegionsRef.current) element.style.display = "none";
+        element.dataset.colonyId = region.id;
+        element.setAttribute("aria-label", `Select ${region.name}`);
+        const label = document.createElement("span");
+        label.className = "colony-overlay-label";
+        label.textContent = `${region.id}  ·  ${Math.round(region.score * 100)}`;
+        element.appendChild(label);
+        element.addEventListener("click", (event) => {
+          event.stopPropagation();
+          onRegionSelectRef.current?.(region.id);
+        });
+        viewer.addOverlay({
+          element,
+          location: new OpenSeadragon.Rect(
+            region.x / 1024,
+            region.y / 1024,
+            region.width / 1024,
+            region.height / 1024
+          ),
+        });
+      }
+    });
 
     // Update viewport state on zoom/pan
     // This uses non-reactive access to prevent React rerenders
@@ -125,7 +169,16 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
     return () => {
       viewer.destroy();
     };
-  }, [imageUrl, onViewportChange]);
+  }, [imageUrl, onViewportChange, regions]);
+
+  useEffect(() => {
+    const container = viewerRef.current;
+    if (!container) return;
+    container.querySelectorAll<HTMLElement>(".colony-overlay").forEach((element) => {
+      element.classList.toggle("selected", element.dataset.colonyId === selectedRegionId);
+      element.style.display = showRegions ? "block" : "none";
+    });
+  }, [selectedRegionId, showRegions, viewport]);
 
   // Update overlay visibility based on workspace state
   useEffect(() => {

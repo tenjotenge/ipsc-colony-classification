@@ -8,8 +8,9 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+from model_inference import load_trained_model
 from pipeline_utils import project_root
-from train import CLASS_NAMES, build_model
+from train import CLASS_NAMES
 
 
 MODEL_PATH = Path("model.pth")
@@ -53,11 +54,7 @@ def main() -> None:
     sample_paths = random.sample(image_paths, k=min(10, len(image_paths)))
     dataset = InferenceDataset(sample_paths)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model().to(device)
-    checkpoint = torch.load(model_path, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    model.eval()
+    model, device = load_trained_model(model_path)
 
     dataloader = DataLoader(
         dataset,

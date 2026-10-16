@@ -20,18 +20,21 @@ interface OverlayEngineProps {
   imageSize?: { width: number; height: number };
 }
 
+const DEFAULT_IMAGE_SIZE = { width: 1024, height: 1024 };
+
 export const OverlayEngine: React.FC<OverlayEngineProps> = ({
   viewport,
   containerRef,
-  imageSize = { width: 2000, height: 2000 },
+  imageSize = DEFAULT_IMAGE_SIZE,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pipelineRef = useRef<RenderPipeline | null>(null);
   const coordinateSystemRef = useRef<CoordinateSystem | null>(null);
+  const initialViewportRef = useRef(viewport);
 
   // Initialize coordinate system and pipeline once
   useEffect(() => {
-    const coordinateSystem = createCoordinateSystem(imageSize, viewport);
+    const coordinateSystem = createCoordinateSystem(imageSize, initialViewportRef.current);
     coordinateSystemRef.current = coordinateSystem;
 
     const pipeline = new RenderPipeline(coordinateSystem);
