@@ -180,7 +180,11 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None, w
             elif resource == "decisions":
                 self.reply(200, {"decisions": store.list_decisions(field_id)})
             elif resource == "export":
-                self.reply(200, {"field": field, "analysis": store.latest_analysis(field_id),
+                latest_job = next(iter(store.list_jobs(field_id)), None)
+                analysis = store.latest_analysis(field_id)
+                self.reply(200, {"field": field, "latest_job": latest_job, "analysis": analysis,
+                                 "analysis_current": analysis is not None and latest_job is not None
+                                 and latest_job["status"] == "succeeded" and latest_job["id"] == analysis["job_id"],
                                  "decisions": store.list_decisions(field_id)})
 
         def do_POST(self) -> None:

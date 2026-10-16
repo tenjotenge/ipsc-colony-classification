@@ -11,13 +11,15 @@ Install the Python and Node dependencies as described in the [README](../README.
 ./linux-v1/run.sh frontend
 ```
 
-`GET http://127.0.0.1:8765/health` confirms the HTTP process is reachable. `GET /ready` also checks SQLite and the analysis workers. `GET /api/status` reports queue counts and worker availability; the inbox shows queued, running, and failed counts. The main UI is at `http://127.0.0.1:3000/inbox`. The Python process must stay running for uploads, jobs, reviews, and exports.
+`GET http://127.0.0.1:8765/health` confirms the HTTP process is reachable. `GET /ready` also checks SQLite and the analysis workers. `GET /api/status` reports latest-job counts per field and worker availability; the inbox shows queued, running, and failed fields. The main UI is at `http://127.0.0.1:3000/inbox`. The Python process must stay running for uploads, jobs, reviews, and exports.
 
 The default data directory is `platform_data/`. Override it with `./linux-v1/run.sh service --data-dir /absolute/path`. Set `ATLAS_API_URL` for the Next.js process if the service uses a different loopback address or port. `ATLAS_API_TOKEN` can be set in **both** processes to authenticate Next.js to the Python API; the service requires a token if it is bound beyond localhost. This token is service authentication, not technician identity. Keep both processes on loopback and place any remotely accessed deployment behind a lab-managed TLS and user authentication gateway. The application currently trusts the reviewer name entered on the screen; it does not verify that identity.
 
 ## Jobs and model provenance
 
 One job per field can be queued or running at a time. Workers claim distinct queued jobs in order, and interrupted jobs are requeued when the service restarts. Each successful analysis records the SHA-256 of `model.pth`; a job fails if that file changes during processing. A missing model produces a visible failed state. Each worker runs one image at a time, with a one-hour timeout. Start with one worker (the default). `./linux-v1/run.sh service --workers 2` enables local parallel analysis, up to four workers; increase this only after measuring memory and model throughput on the deployment host. This design supports a single-site pilot; it does not coordinate multiple worker hosts or provide a throughput guarantee.
+
+When a field is rerun, its previous analysis remains stored for historical context but is hidden from the current review controls until the new job succeeds. The field export includes `latest_job` and `analysis_current` so downstream readers can distinguish prior output from the latest run.
 
 Imported images are limited to 100 MB and 100 megapixels. Bytes are streamed to disk, checked as PNG, JPEG, or TIFF, and stored by SHA-256. The current analysis still reads a whole image and uses fixed-size tiles; memory and processing time need to be measured with each lab's actual image sizes before setting throughput expectations.
 

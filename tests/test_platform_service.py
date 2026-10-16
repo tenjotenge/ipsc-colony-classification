@@ -69,6 +69,12 @@ class PlatformServiceTests(unittest.TestCase):
         status, exported = self.request("GET", f"/api/fields/{field['id']}/export")
         self.assertEqual(status, 200)
         self.assertEqual(exported["decisions"][0]["decision"], "shortlist")
+        self.assertTrue(exported["analysis_current"])
+        rerun = self.store.add_job(field["id"])
+        status, exported = self.request("GET", f"/api/fields/{field['id']}/export")
+        self.assertEqual(status, 200)
+        self.assertEqual(exported["latest_job"]["id"], rerun["id"])
+        self.assertFalse(exported["analysis_current"])
 
     def test_rejects_invalid_image_and_decision(self):
         self.assertEqual(self.request("POST", "/api/fields", b"not an image", {"X-Filename": "bad.png"})[0], 400)
@@ -120,6 +126,12 @@ class PlatformServiceTests(unittest.TestCase):
         self.assertEqual({job["id"] for job in claimed}, {job["id"] for job in jobs})
         self.assertEqual(self.request("GET", "/api/status")[1]["jobs"]["running"], 3)
         self.assertIsNone(self.store.claim_job())
+        self.store.finish_job(jobs[0]["id"], None, None, "synthetic failure")
+        self.assertEqual(self.store.job_counts()["failed"], 1)
+        retried = self.store.add_job(fields[0]["id"])
+        self.assertEqual(self.store.job_counts()["failed"], 0)
+        self.assertEqual(self.store.job_counts()["queued"], 1)
+        self.assertEqual(self.store.claim_job()["id"], retried["id"])
 
     def test_encoded_unicode_filename(self):
         buffer = io.BytesIO()

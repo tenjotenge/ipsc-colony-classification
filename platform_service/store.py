@@ -120,7 +120,10 @@ class Store:
     def job_counts(self) -> dict[str, int]:
         counts = {status: 0 for status in ("queued", "running", "succeeded", "failed")}
         with self.connect() as db:
-            for status, count in db.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status"):
+            for status, count in db.execute("""SELECT j.status, COUNT(*) FROM jobs j
+                WHERE j.rowid = (SELECT recent.rowid FROM jobs recent WHERE recent.field_id=j.field_id
+                    ORDER BY recent.created_at DESC, recent.rowid DESC LIMIT 1)
+                GROUP BY j.status"""):
                 counts[status] = count
         return counts
 
