@@ -2,14 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DemoColony } from "@/lib/demo/plate";
 import { AnalysisRecord, DecisionRecord, FieldRecord, JobRecord, platformJson } from "@/lib/platform/types";
 
 const MicroscopyViewer = dynamic(() => import("@/components/viewer/MicroscopyViewer").then((m) => m.MicroscopyViewer), { ssr: false });
 
-export default function FieldPage({ params }: { params: Promise<{ id: string }> }) {
-  const [fieldId, setFieldId] = useState("");
+export default function FieldPage() {
+  const fieldId = useParams<{ id: string }>().id;
   const [field, setField] = useState<FieldRecord | null>(null);
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisRecord | null>(null);
@@ -20,8 +21,7 @@ export default function FieldPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { void params.then(({ id }) => setFieldId(id)); }, [params]);
-  useEffect(() => { setReviewer(window.localStorage.getItem("atlas-reviewer") ?? ""); }, []);
+  useEffect(() => { queueMicrotask(() => setReviewer(window.localStorage.getItem("atlas-reviewer") ?? "")); }, []);
 
   const refresh = useCallback(async () => {
     if (!fieldId) return;
@@ -41,7 +41,7 @@ export default function FieldPage({ params }: { params: Promise<{ id: string }> 
   }, [fieldId]);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => void refresh());
     const timer = window.setInterval(refresh, 4000);
     return () => window.clearInterval(timer);
   }, [refresh]);

@@ -28,6 +28,9 @@ class Store:
 
     def initialize(self) -> None:
         with self.connect() as db:
+            version = db.execute("PRAGMA user_version").fetchone()[0]
+            if version not in {0, 1}:
+                raise RuntimeError(f"Unsupported database schema version: {version}")
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS fields (
                     id TEXT PRIMARY KEY,
@@ -48,6 +51,8 @@ class Store:
                     finished_at TEXT
                 );
                 CREATE INDEX IF NOT EXISTS jobs_field_created ON jobs(field_id, created_at DESC);
+                CREATE UNIQUE INDEX IF NOT EXISTS one_active_job_per_field ON jobs(field_id)
+                    WHERE status IN ('queued','running');
                 CREATE TABLE IF NOT EXISTS analyses (
                     job_id TEXT PRIMARY KEY REFERENCES jobs(id),
                     field_id TEXT NOT NULL REFERENCES fields(id),
@@ -67,6 +72,7 @@ class Store:
                 );
                 CREATE INDEX IF NOT EXISTS decisions_field_created ON decisions(field_id, created_at DESC);
             """)
+            db.execute("PRAGMA user_version=1")
             # A stopped process must not leave jobs permanently in the running state.
             db.execute("UPDATE jobs SET status='queued', started_at=NULL WHERE status='running'")
 
@@ -93,6 +99,7 @@ class Store:
         job = dict(id=uuid4().hex, field_id=field_id, status="queued", error=None,
                    created_at=now(), started_at=None, finished_at=None)
         with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             if not db.execute("SELECT 1 FROM fields WHERE id=?", (field_id,)).fetchone():
                 raise KeyError("field not found")
             active = db.execute("SELECT 1 FROM jobs WHERE field_id=? AND status IN ('queued','running')", (field_id,)).fetchone()

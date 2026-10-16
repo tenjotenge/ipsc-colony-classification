@@ -21,7 +21,7 @@ export default function InboxPage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => void refresh());
     const timer = window.setInterval(refresh, 5000);
     return () => window.clearInterval(timer);
   }, [refresh]);
@@ -33,7 +33,7 @@ export default function InboxPage() {
       await platformJson<FieldRecord>("fields", {
         method: "POST",
         body: file,
-        headers: { "X-Filename": file.name, "Content-Type": "application/octet-stream" },
+        headers: { "X-Filename-Encoded": encodeURIComponent(file.name), "Content-Type": "application/octet-stream" },
       });
       await refresh();
       if (input.current) input.current.value = "";

@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef } from "react";
 import OpenSeadragon from "openseadragon";
-import { OverlayEngine } from "./overlay-engine";
+import { OverlayEngine, overlayRegistry, renderScheduler } from "./overlay-engine";
 import { ViewportState } from "./overlay-engine/ViewportTransformer";
 import { useWorkspace } from "@/lib/workspace";
-import { useViewportState, getViewportActions, getViewportState } from "@/lib/viewport/ViewportStore";
+import { useViewportState, getViewportActions } from "@/lib/viewport/ViewportStore";
 import type { DemoColony } from "@/lib/demo/plate";
 
 interface MicroscopyViewerProps {
@@ -32,9 +32,9 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
   const onRegionSelectRef = useRef(onRegionSelect);
   const selectedRegionRef = useRef(selectedRegionId);
   const showRegionsRef = useRef(showRegions);
-  onRegionSelectRef.current = onRegionSelect;
-  selectedRegionRef.current = selectedRegionId;
-  showRegionsRef.current = showRegions;
+  useEffect(() => { onRegionSelectRef.current = onRegionSelect; }, [onRegionSelect]);
+  useEffect(() => { selectedRegionRef.current = selectedRegionId; }, [selectedRegionId]);
+  useEffect(() => { showRegionsRef.current = showRegions; }, [showRegions]);
   const { overlayVisibility } = useWorkspace();
 
   // Use isolated viewport state - this won't trigger React rerenders on pan/zoom
@@ -184,7 +184,6 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
 
   // Update overlay visibility based on workspace state
   useEffect(() => {
-    const { overlayRegistry } = require("./overlay-engine");
     
     overlayRegistry.setVisibility("colony-bounding-box", overlayVisibility.colonyBoundingBoxes);
     overlayRegistry.setVisibility("confidence-heatmap", overlayVisibility.confidenceHeatmap);
@@ -194,7 +193,6 @@ export const MicroscopyViewer: React.FC<MicroscopyViewerProps> = ({
     overlayRegistry.setVisibility("cluster-region", overlayVisibility.clusterRegions);
     
     // Trigger re-render
-    const { renderScheduler } = require("./overlay-engine");
     renderScheduler.schedule();
   }, [overlayVisibility]);
 

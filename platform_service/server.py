@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import logging
 import os
@@ -10,9 +9,11 @@ import subprocess
 import sys
 import tempfile
 import threading
+import fcntl
+import warnings
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from PIL import Image, UnidentifiedImageError
 
@@ -22,6 +23,7 @@ from .store import Store
 LOG = logging.getLogger("colony_atlas")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+MAX_IMAGE_PIXELS = 100_000_000
 IMAGE_TYPES = {"PNG": (".png", "image/png"), "JPEG": (".jpg", "image/jpeg"), "TIFF": (".tiff", "image/tiff")}
 FIELD_ROUTE = re.compile(r"^/api/fields/([0-9a-f]{32})(?:/(image|analysis|jobs|decisions|export))?$")
 
@@ -34,15 +36,17 @@ def process_one_job(store: Store, job: dict, model_path: Path) -> None:
     if not model_path.is_file():
         store.finish_job(job["id"], None, None, "No trained model is installed. Ask an administrator to add model.pth.")
         return
-    input_dir = store.root / "jobs" / job["id"] / "input"
-    output_dir = store.root / "jobs" / job["id"] / "output"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    source = store.root / field["image_path"]
-    target = input_dir / ("field" + source.suffix)
-    if not target.exists():
-        target.symlink_to(source)
     try:
+        input_dir = store.root / "jobs" / job["id"] / "input"
+        output_dir = store.root / "jobs" / job["id"] / "output"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        source = store.root / field["image_path"]
+        target = input_dir / ("field" + source.suffix)
+        if not target.exists():
+            target.symlink_to(source)
+        with model_path.open("rb") as model_file:
+            model_digest = hashlib.file_digest(model_file, "sha256").hexdigest()
         result = subprocess.run(
             [sys.executable, str(PROJECT_ROOT / "run_analysis.py"), "--input", str(input_dir), "--output", str(output_dir)],
             cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=3600, check=False,
@@ -53,8 +57,10 @@ def process_one_job(store: Store, job: dict, model_path: Path) -> None:
         if len(report_items) != 1:
             raise RuntimeError("Analysis did not return exactly one field")
         with model_path.open("rb") as model_file:
-            digest = hashlib.file_digest(model_file, "sha256").hexdigest()
-        store.finish_job(job["id"], report_items[0], digest)
+            finished_digest = hashlib.file_digest(model_file, "sha256").hexdigest()
+        if finished_digest != model_digest:
+            raise RuntimeError("Model changed during analysis; rerun the job")
+        store.finish_job(job["id"], report_items[0], model_digest)
         LOG.info("job succeeded id=%s field=%s", job["id"], job["field_id"])
     except Exception as exc:
         LOG.exception("job failed id=%s", job["id"])
@@ -63,16 +69,27 @@ def process_one_job(store: Store, job: dict, model_path: Path) -> None:
 
 def worker_loop(store: Store, model_path: Path, stop: threading.Event) -> None:
     while not stop.is_set():
-        job = store.claim_job()
-        if job:
-            process_one_job(store, job, model_path)
-        else:
+        try:
+            job = store.claim_job()
+            if job:
+                process_one_job(store, job, model_path)
+            else:
+                stop.wait(1)
+        except Exception:
+            LOG.exception("worker loop failed; retrying")
             stop.wait(1)
 
 
-def make_handler(store: Store):
+def make_handler(store: Store, api_token: str | None = None, ready_check=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ColonyAtlas/0.2"
+
+        def authorized(self) -> bool:
+            if api_token is None:
+                return True
+            import hmac
+            provided = self.headers.get("Authorization", "")
+            return hmac.compare_digest(provided, f"Bearer {api_token}")
 
         def reply(self, status: int, value: object) -> None:
             data = json.dumps(value).encode("utf-8")
@@ -117,6 +134,19 @@ def make_handler(store: Store):
             if path == "/health":
                 self.reply(200, {"status": "ok"})
                 return
+            if not self.authorized():
+                self.fail(401, "Unauthorized")
+                return
+            if path == "/ready":
+                try:
+                    with store.connect() as db:
+                        db.execute("SELECT 1").fetchone()
+                    if ready_check is not None and not ready_check():
+                        raise RuntimeError("worker unavailable")
+                    self.reply(200, {"status": "ready"})
+                except Exception:
+                    self.fail(503, "Service is not ready")
+                return
             if path == "/api/fields":
                 self.reply(200, {"fields": store.list_fields()})
                 return
@@ -151,6 +181,9 @@ def make_handler(store: Store):
 
         def do_POST(self) -> None:
             path = urlsplit(self.path).path
+            if not self.authorized():
+                self.fail(401, "Unauthorized")
+                return
             try:
                 if path == "/api/fields":
                     self.upload()
@@ -182,32 +215,58 @@ def make_handler(store: Store):
                 self.fail(400, str(exc))
 
         def upload(self) -> None:
-            filename = Path(self.headers.get("X-Filename", "")).name.strip()
-            if not filename or len(filename) > 255:
+            raw_name = self.headers.get("X-Filename-Encoded")
+            filename = (unquote(raw_name) if raw_name is not None else self.headers.get("X-Filename", "")).strip()
+            if not filename or len(filename) > 255 or "/" in filename or "\\" in filename or any(ord(char) < 32 for char in filename):
                 raise ValueError("X-Filename must contain a filename under 256 characters")
-            data = self.body(MAX_UPLOAD_BYTES)
-            try:
-                with Image.open(io.BytesIO(data)) as image:
-                    image_format = image.format
-                    width, height = image.size
-                    image.verify()
-            except (UnidentifiedImageError, OSError, ValueError) as exc:
-                raise ValueError("Invalid image file") from exc
-            if image_format not in IMAGE_TYPES or width < 1 or height < 1 or width * height > 400_000_000:
-                raise ValueError("Supported images are PNG, JPEG, and TIFF up to 400 megapixels")
-            extension = IMAGE_TYPES[image_format][0]
-            digest = hashlib.sha256(data).hexdigest()
+            raw_length = self.headers.get("Content-Length")
+            if raw_length is None or not raw_length.isdecimal():
+                raise ValueError("Content-Length is required")
+            length = int(raw_length)
+            if length < 1 or length > MAX_UPLOAD_BYTES:
+                self.fail(413, "Image exceeds the 100 MB upload limit")
+                return
             blob_dir = store.root / "images"
             blob_dir.mkdir(exist_ok=True)
+            digest_builder = hashlib.sha256()
+            with tempfile.NamedTemporaryFile(dir=blob_dir, delete=False) as temp:
+                temp_path = Path(temp.name)
+                try:
+                    remaining = length
+                    while remaining:
+                        chunk = self.rfile.read(min(1024 * 1024, remaining))
+                        if not chunk:
+                            raise ValueError("Incomplete request body")
+                        temp.write(chunk)
+                        digest_builder.update(chunk)
+                        remaining -= len(chunk)
+                    temp.flush()
+                    os.fsync(temp.fileno())
+                except Exception:
+                    temp_path.unlink(missing_ok=True)
+                    raise
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", Image.DecompressionBombWarning)
+                    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+                    with Image.open(temp_path) as image:
+                        image_format = image.format
+                        width, height = image.size
+                        image.verify()
+            except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombWarning) as exc:
+                temp_path.unlink(missing_ok=True)
+                raise ValueError("Invalid image file") from exc
+            if image_format not in IMAGE_TYPES or width < 1 or height < 1 or width * height > MAX_IMAGE_PIXELS:
+                temp_path.unlink(missing_ok=True)
+                raise ValueError("Supported images are PNG, JPEG, and TIFF up to 100 megapixels")
+            extension = IMAGE_TYPES[image_format][0]
+            digest = digest_builder.hexdigest()
             relative_path = f"images/{digest}{extension}"
             blob_path = store.root / relative_path
             if not blob_path.exists():
-                with tempfile.NamedTemporaryFile(dir=blob_dir, delete=False) as temp:
-                    temp.write(data)
-                    temp.flush()
-                    os.fsync(temp.fileno())
-                    temp_path = Path(temp.name)
                 os.replace(temp_path, blob_path)
+            else:
+                temp_path.unlink()
             field = store.add_field(filename, relative_path, digest, width, height)
             self.reply(201, field)
 
@@ -218,18 +277,31 @@ def make_handler(store: Store):
 
 
 def serve(host: str = "127.0.0.1", port: int = 8765, root: Path | None = None, start_worker: bool = True) -> None:
-    store = Store(root or PROJECT_ROOT / "platform_data")
+    api_token = os.environ.get("ATLAS_API_TOKEN") or None
+    if host not in {"127.0.0.1", "::1", "localhost"} and not api_token:
+        raise SystemExit("ATLAS_API_TOKEN is required when binding beyond localhost")
+    data_root = (root or PROJECT_ROOT / "platform_data").resolve()
+    data_root.mkdir(parents=True, exist_ok=True)
+    lock = (data_root / ".service.lock").open("w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        raise SystemExit("Another service already uses this data directory") from exc
+    store = Store(data_root)
     stop = threading.Event()
+    worker = None
     if start_worker:
         worker = threading.Thread(target=worker_loop, args=(store, PROJECT_ROOT / "model.pth", stop), daemon=True)
         worker.start()
-    server = ThreadingHTTPServer((host, port), make_handler(store))
+    server = ThreadingHTTPServer((host, port), make_handler(store, api_token, lambda: worker is None or worker.is_alive()))
+    server.daemon_threads = True
     LOG.info("Colony Atlas API listening on http://%s:%s", host, port)
     try:
         server.serve_forever()
     finally:
         stop.set()
         server.server_close()
+        lock.close()
 
 
 if __name__ == "__main__":

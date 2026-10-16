@@ -35,6 +35,8 @@ The repository now includes a local HTTP service for importing microscopy fields
 
 The service listens on `http://127.0.0.1:8765`. `GET /health` checks availability. Its current API accepts raw PNG, JPEG, or TIFF bytes at `POST /api/fields` with an `X-Filename` header; `POST /api/fields/{id}/jobs` queues analysis. `GET /api/fields/{id}/export` returns the field, latest analysis, and decision history. A trained `model.pth` must be installed before analysis jobs can succeed. The service is currently a single-machine research deployment and has no user authentication; do not expose its port on a shared network.
 
+See [local platform operations](docs/operations.md) for service checks, backup and restore, access boundaries, job recovery, and model provenance.
+
 Run the service and frontend in separate terminals:
 
 ```bash
@@ -115,7 +117,7 @@ The output contains `plate_report.json`, `plate_report.csv`, and image specific 
 - Weak labels come from image statistics, which can reflect acquisition conditions rather than colony morphology. Manual or expert labels are needed for meaningful training.
 - There is no held out biological validation, expert agreement study, or cross lab evaluation in this repository. Reported scores must not be interpreted as validated colony quality.
 - The main frontend can display live analysis output and save review decisions. The separate `/workspace` synthetic demo still contains validation, calibration, and retrieval previews without measured artifacts.
-- The local service has no account authentication, permissions, backup automation, or multi-host job coordination yet. Its SQLite and filesystem storage must be backed up together.
+- The local service has no verified user accounts, permissions, automatic backup schedule, or multi-host job coordination yet. An offline, integrity-checked backup command covers its SQLite and filesystem storage.
 - The analysis uses fixed size, nonoverlapping tiles; its region grouping is a heuristic over nearby tile boxes. It is not colony segmentation.
 - The optional `--debug` analysis path requires a diagnostics module that is not included in this checkout.
 

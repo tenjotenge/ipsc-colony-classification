@@ -16,7 +16,7 @@ import {
 
 interface OverlayEngineProps {
   viewport: ViewportState;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   imageSize?: { width: number; height: number };
 }
 

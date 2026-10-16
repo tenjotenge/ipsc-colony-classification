@@ -11,6 +11,8 @@ async function proxy(request: NextRequest, segments: string[], method: "GET" | "
   const headers = new Headers();
   if (request.headers.has("content-type")) headers.set("Content-Type", request.headers.get("content-type")!);
   if (request.headers.has("x-filename")) headers.set("X-Filename", request.headers.get("x-filename")!);
+  if (request.headers.has("x-filename-encoded")) headers.set("X-Filename-Encoded", request.headers.get("x-filename-encoded")!);
+  if (process.env.ATLAS_API_TOKEN) headers.set("Authorization", `Bearer ${process.env.ATLAS_API_TOKEN}`);
   try {
     const response = await fetch(url, {
       method,

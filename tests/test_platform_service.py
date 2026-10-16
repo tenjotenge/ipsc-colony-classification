@@ -1,15 +1,19 @@
 import io
 import json
+import sqlite3
+import subprocess
 import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from PIL import Image
 
-from platform_service.server import make_handler
+from platform_service.server import make_handler, process_one_job
 from platform_service.store import Store
 
 
@@ -71,6 +75,74 @@ class PlatformServiceTests(unittest.TestCase):
         _, field = self.upload()
         self.assertEqual(self.request("GET", "/api/fields/../../etc/passwd")[0], 404)
         self.assertEqual(self.request("POST", f"/api/fields/{field['id']}/decisions", b"{}", {"Content-Type": "application/json"})[0], 400)
+
+    def test_authentication_and_readiness(self):
+        protected = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.store, "test-token"))
+        thread = threading.Thread(target=protected.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = HTTPConnection("127.0.0.1", protected.server_port, timeout=5)
+            connection.request("GET", "/api/fields")
+            self.assertEqual(connection.getresponse().status, 401)
+            connection.close()
+            connection = HTTPConnection("127.0.0.1", protected.server_port, timeout=5)
+            connection.request("GET", "/ready", headers={"Authorization": "Bearer test-token"})
+            self.assertEqual(connection.getresponse().status, 200)
+            connection.close()
+        finally:
+            protected.shutdown()
+            protected.server_close()
+            thread.join(timeout=5)
+
+    def test_upload_limit_and_content_deduplication(self):
+        _, first = self.upload()
+        _, second = self.upload()
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertEqual(first["image_path"], second["image_path"])
+        self.assertEqual(len(list((Path(self.temp.name) / "images").glob("*.png"))), 1)
+        self.assertEqual(self.request("POST", "/api/fields", b"", {"X-Filename": "huge.png", "Content-Length": str(101 * 1024 * 1024)})[0], 413)
+
+    def test_concurrent_job_requests_create_one_active_job(self):
+        _, field = self.upload()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(lambda _: self.request("POST", f"/api/fields/{field['id']}/jobs")[0], range(2)))
+        self.assertEqual(sorted(outcomes), [201, 400])
+        self.assertEqual(len(self.store.list_jobs(field["id"])), 1)
+
+    def test_encoded_unicode_filename(self):
+        buffer = io.BytesIO()
+        Image.new("L", (8, 8), color=100).save(buffer, format="PNG")
+        status, field = self.request("POST", "/api/fields", buffer.getvalue(), {"X-Filename-Encoded": "pl%C3%A5t.png"})
+        self.assertEqual(status, 201)
+        self.assertEqual(field["filename"], "plåt.png")
+
+    def test_rejects_future_database_schema(self):
+        with sqlite3.connect(self.store.db_path) as db:
+            db.execute("PRAGMA user_version=999")
+        with self.assertRaisesRegex(RuntimeError, "Unsupported database schema"):
+            Store(Path(self.temp.name))
+
+    def test_worker_records_model_provenance_and_result(self):
+        _, field = self.upload()
+        job = self.store.add_job(field["id"])
+        self.store.claim_job()
+        model = Path(self.temp.name) / "model.pth"
+        model.write_bytes(b"synthetic model fixture")
+
+        def fake_analysis(command, **_kwargs):
+            output = Path(command[command.index("--output") + 1])
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "plate_report.json").write_text(json.dumps([{
+                "image_id": "field", "ranked_colonies": [{"colony_id": "field_colony_001"}],
+            }]), encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with patch("platform_service.server.subprocess.run", side_effect=fake_analysis):
+            process_one_job(self.store, job, model)
+        self.assertEqual(self.store.list_jobs(field["id"])[0]["status"], "succeeded")
+        analysis = self.store.latest_analysis(field["id"])
+        self.assertEqual(len(analysis["model_sha256"]), 64)
+        self.assertEqual(analysis["report"]["ranked_colonies"][0]["colony_id"], "field_colony_001")
 
 
 if __name__ == "__main__":
