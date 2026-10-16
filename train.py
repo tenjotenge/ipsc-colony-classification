@@ -235,11 +235,13 @@ class TileDataset(Dataset):
         )
 
 
-def build_model() -> nn.Module:
-    try:
-        weights = models.ResNet18_Weights.DEFAULT
-        model = models.resnet18(weights=weights)
-    except Exception:
+def build_model(pretrained: bool = True) -> nn.Module:
+    if pretrained:
+        try:
+            model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        except Exception:
+            model = models.resnet18(weights=None)
+    else:
         model = models.resnet18(weights=None)
 
     original_conv = model.conv1

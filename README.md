@@ -187,6 +187,31 @@ train → embed → calibrate → analyze → rebuild hard examples → validate
 
 ## Installation
 
+### Linux testing
+
+This checkout uses a Python command-line pipeline and a separate Next.js frontend. Both can run on Linux; there is no desktop launcher or API server to start. The frontend currently shows mock image and colony data, so it does not display pipeline results yet. The documented advanced validation and diagnostics modules are not present in this checkout.
+
+On Linux, use Python 3.12 for the backend. With `uv` installed:
+
+```bash
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+mkdir -p raw
+# Copy microscopy PNG, JPG, or TIFF images into raw/
+.venv/bin/python run_pipeline.py --check
+.venv/bin/python run_pipeline.py
+```
+
+Training writes `model.pth`. To analyze a separate plate folder after training:
+
+```bash
+.venv/bin/python run_analysis.py --input /path/to/plate-images --output analysis_output
+```
+
+For the frontend, run `cd frontend && npm ci && npm run dev` and open `http://localhost:3000`. The frontend can be tested independently of the Python pipeline. See [frontend/README.md](frontend/README.md) for its current scope.
+
+If the package install cannot reach PyPI or npm, dependency installation must wait for network access or a complete local package cache.
+
 ### Backend Requirements
 
 ```bash
@@ -225,11 +250,8 @@ npm install
 ### Running the Full Pipeline
 
 ```bash
-# Basic pipeline execution
-python run_pipeline.py
-
-# Full validation mode (includes domain validation, retrieval analysis, calibration evaluation)
-python run_pipeline.py --full-validation
+# Basic pipeline execution (after placing images in raw/)
+python3 run_pipeline.py
 ```
 
 ### Individual Stages
@@ -246,11 +268,8 @@ python generate_labels.py
 # Training
 python train.py
 
-# Inference
-python model_inference.py
-
 # Colony analysis
-python run_analysis.py
+python3 run_analysis.py --input /path/to/plate-images --output analysis_output
 ```
 
 ### Frontend Development

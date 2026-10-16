@@ -33,6 +33,8 @@ npm install
 npm run dev
 ```
 
+The workspace currently uses placeholder imagery, a mock review queue, and mock metrics. It is suitable for testing the interface on Linux, but it is not connected to the Python analysis output yet.
+
 ## Build
 
 ```bash

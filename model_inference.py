@@ -26,8 +26,8 @@ class TilePrediction:
 
 def load_trained_model(model_path: str | bytes | PathLike[str] | PathLike[bytes]) -> tuple[torch.nn.Module, torch.device]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = build_model().to(device)
-    checkpoint = torch.load(model_path, map_location=device)
+    model = build_model(pretrained=False).to(device)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
     return model, device

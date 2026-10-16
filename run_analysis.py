@@ -6,7 +6,6 @@ from pathlib import Path
 import json
 
 from colony_analysis import TOP_K_DEFAULT, analyze_plate_folder, iter_input_images, load_model_for_analysis, load_normalized_plate
-from diagnostics.perturbation_tests import run_perturbation_suite
 from pipeline_utils import ensure_directories
 
 
@@ -26,6 +25,14 @@ def main() -> None:
     input_dir = Path(args.input)
     output_dir = Path(args.output)
     top_k = max(1, args.top_k)
+
+    if args.debug:
+        try:
+            from diagnostics.perturbation_tests import run_perturbation_suite
+        except ModuleNotFoundError as exc:
+            if exc.name in {"diagnostics", "diagnostics.perturbation_tests"}:
+                raise SystemExit("run_analysis: --debug requires diagnostics/perturbation_tests.py, which is not included in this checkout") from exc
+            raise
 
     model, device = load_model_for_analysis()
     analyze_plate_folder(
