@@ -9,12 +9,13 @@ usage() {
 Usage: linux-v1/run.sh check
        linux-v1/run.sh pipeline
        linux-v1/run.sh analysis INPUT_DIR OUTPUT_DIR
+       linux-v1/run.sh service
        linux-v1/run.sh frontend
 EOF
 }
 
 case "${1:-}" in
-  check|pipeline|analysis)
+  check|pipeline|analysis|service)
     if [[ ! -x "$python" ]]; then
       echo "Missing .venv/bin/python. Create the Python environment first; see README.md." >&2
       exit 1
@@ -23,6 +24,7 @@ case "${1:-}" in
     case "$1" in
       check) exec "$python" run_pipeline.py --check ;;
       pipeline) exec "$python" run_pipeline.py ;;
+      service) exec "$python" -m platform_service.server ;;
       analysis)
         if [[ $# -ne 3 ]]; then usage >&2; exit 2; fi
         exec "$python" run_analysis.py --input "$2" --output "$3"

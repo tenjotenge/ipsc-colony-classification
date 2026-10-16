@@ -25,6 +25,16 @@ A tile prediction by itself does not tell a reviewer where a colony is or how se
 
 The stages are separate scripts and leave intermediate artifacts on disk, making it possible to inspect each step. Stage markers skip preprocessing and training work when their inputs and configuration have not changed.
 
+## Local platform service
+
+The repository now includes a local HTTP service for importing microscopy fields, queuing analyses, storing results, and recording review decisions in SQLite. Source images are stored by SHA-256 digest; jobs and decisions survive process restarts. It binds to `127.0.0.1` by default and stores its state in the ignored `platform_data/` directory.
+
+```bash
+./linux-v1/run.sh service
+```
+
+The service listens on `http://127.0.0.1:8765`. `GET /health` checks availability. Its current API accepts raw PNG, JPEG, or TIFF bytes at `POST /api/fields` with an `X-Filename` header; `POST /api/fields/{id}/jobs` queues analysis. `GET /api/fields/{id}/export` returns the field, latest analysis, and decision history. A trained `model.pth` must be installed before analysis jobs can succeed. The service is currently a single-machine research deployment and has no user authentication; do not expose its port on a shared network.
+
 ```text
 raw/ → processed/ → tiles/ → tiles_clean/ → dataset/ → model.pth
                                               ↓

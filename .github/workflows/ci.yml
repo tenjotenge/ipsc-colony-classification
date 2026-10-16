@@ -17,7 +17,9 @@ jobs:
           python-version: '3.12'
       - name: Check Python entry points
         run: |
+          python -m pip install pillow
           python -m compileall -q run_pipeline.py run_analysis.py train.py model_inference.py
+          python -m compileall -q platform_service
           python -m unittest discover -s tests -v
 
   frontend:
