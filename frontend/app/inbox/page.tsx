@@ -68,6 +68,7 @@ export default function InboxPage() {
         <span>{status.jobs.queued} queued</span><span>{status.jobs.running} running</span><span>{status.jobs.failed} failed</span>
         <span className="ml-auto text-slate-500">{status.workers} {status.workers === 1 ? "worker" : "workers"}{!status.worker_available && " · unavailable"}</span>
       </section>}
+      {status && !status.model_installed && <p role="status" className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">A model is not installed yet. You can import fields, but an administrator must add model.pth before analysis can run.</p>}
       <section className="mt-9"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">Fields</h2><span className="text-xs text-slate-500">{fields.length} imported</span></div>
         {fields.length === 0 ? <div className="rounded-xl border border-dashed border-white/15 p-10 text-center text-sm text-slate-400">No fields yet. Import an image to begin.</div> :
           <div className="space-y-2">{fields.map((field) => <Link key={field.id} href={`/fields/${field.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-5 py-4 hover:border-teal-300/40 hover:bg-white/[0.05]">

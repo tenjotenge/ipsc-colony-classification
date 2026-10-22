@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DemoColony } from "@/lib/demo/plate";
-import { AnalysisRecord, DecisionRecord, FieldRecord, JobRecord, platformJson } from "@/lib/platform/types";
+import { AnalysisRecord, DecisionRecord, FieldRecord, JobRecord, PlatformStatus, platformJson } from "@/lib/platform/types";
 
 const MicroscopyViewer = dynamic(() => import("@/components/viewer/MicroscopyViewer").then((m) => m.MicroscopyViewer), { ssr: false });
 
@@ -15,6 +15,7 @@ export default function FieldPage() {
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisRecord | null>(null);
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
+  const [platformStatus, setPlatformStatus] = useState<PlatformStatus | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [reviewer, setReviewer] = useState("");
   const [note, setNote] = useState("");
@@ -26,12 +27,13 @@ export default function FieldPage() {
   const refresh = useCallback(async () => {
     if (!fieldId) return;
     try {
-      const [f, j, d] = await Promise.all([
+      const [f, j, d, s] = await Promise.all([
         platformJson<FieldRecord>(`fields/${fieldId}`),
         platformJson<{ jobs: JobRecord[] }>(`fields/${fieldId}/jobs`),
         platformJson<{ decisions: DecisionRecord[] }>(`fields/${fieldId}/decisions`),
+        platformJson<PlatformStatus>("status"),
       ]);
-      setField(f); setJobs(j.jobs); setDecisions(d.decisions);
+      setField(f); setJobs(j.jobs); setDecisions(d.decisions); setPlatformStatus(s);
       try { setAnalysis(await platformJson<AnalysisRecord>(`fields/${fieldId}/analysis`)); }
       catch { setAnalysis(null); }
       setError("");
@@ -97,7 +99,7 @@ export default function FieldPage() {
       </aside>
       <section className="relative min-h-[450px] flex-1 bg-black lg:min-h-[calc(100vh-90px)]"><MicroscopyViewer imageUrl={`/api/platform/fields/${fieldId}/preview`} imageWidth={field.width} regions={regions} selectedRegionId={selected?.id} onRegionSelect={setSelectedId} /><div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-[#08111c]/90 px-3 py-2 text-xs text-slate-200">Review preview · source available above · {regions.length} suggested regions</div></section>
       <aside className="w-full shrink-0 border-t border-white/10 p-5 lg:w-80 lg:border-l lg:border-t-0"><h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">Review</h2>
-        <div className="mt-4 rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Analysis status</div><div className="mt-2 text-sm capitalize text-slate-300">{latestJob?.status ?? "Not started"}</div>{latestJob?.error && <p className="mt-2 text-xs leading-relaxed text-rose-300">{latestJob.error}</p>}<button disabled={busy || latestJob?.status === "queued" || latestJob?.status === "running"} onClick={() => void startAnalysis()} className="mt-4 w-full rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{latestJob ? "Run analysis again" : "Run analysis"}</button></div>
+        <div className="mt-4 rounded-xl border border-white/10 p-4"><div className="text-sm font-semibold">Analysis status</div><div className="mt-2 text-sm capitalize text-slate-300">{latestJob?.status ?? "Not started"}</div>{latestJob?.error && <p className="mt-2 text-xs leading-relaxed text-rose-300">{latestJob.error}</p>}{platformStatus && !platformStatus.model_installed && <p className="mt-2 text-xs text-amber-200">Ask an administrator to install model.pth before running analysis.</p>}<button disabled={busy || !platformStatus?.model_installed || latestJob?.status === "queued" || latestJob?.status === "running"} onClick={() => void startAnalysis()} className="mt-4 w-full rounded-lg bg-teal-300 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{latestJob ? "Run analysis again" : "Run analysis"}</button></div>
         {selected && currentAnalysis && <div className="mt-5 space-y-4"><div><h3 className="font-semibold">{selected.name}</h3><p className="mt-1 text-xs leading-relaxed text-slate-400">The ranking score is model output, not a validated measure of colony quality. Inspect the image and record your own assessment.</p></div><label className="block text-xs text-slate-300">Your name<input value={reviewer} onChange={(event) => setReviewer(event.target.value)} maxLength={100} className="mt-1.5 w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-teal-300" placeholder="Technician name" /></label><label className="block text-xs text-slate-300">Note (optional)<textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={2000} rows={3} className="mt-1.5 w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2.5 text-sm text-white outline-none focus:border-teal-300" placeholder="Reason for this decision" /></label><div className="grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => void decide("shortlist")} className="rounded-lg bg-teal-300 px-3 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50">Shortlist</button><button disabled={busy} onClick={() => void decide("flag")} className="rounded-lg border border-amber-300/40 px-3 py-2.5 text-sm text-amber-200 disabled:opacity-50">Flag</button><button disabled={busy} onClick={() => void decide("reject")} className="col-span-2 rounded-lg border border-white/15 px-3 py-2.5 text-sm text-slate-300 disabled:opacity-50">Reject candidate</button></div></div>}
         {decisions.length > 0 && <div className="mt-7 border-t border-white/10 pt-5"><h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Decision history</h3><div className="mt-3 space-y-3">{[...decisions].reverse().slice(0, 10).map((item) => <div key={item.id} className="text-xs text-slate-400"><span className="capitalize text-slate-200">{item.decision}</span> · {item.reviewer}<br />{new Date(item.created_at).toLocaleString()}{item.note && <p className="mt-1">{item.note}</p>}</div>)}</div></div>}
       </aside>

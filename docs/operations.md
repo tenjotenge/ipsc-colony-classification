@@ -13,7 +13,7 @@ Install the Python and Node dependencies as described in the [README](../README.
 ./linux-v1/run.sh frontend
 ```
 
-`GET http://127.0.0.1:8765/health` confirms the HTTP process is reachable. `GET /ready` also checks SQLite and the analysis workers. `GET /api/status` reports latest-job counts per field and worker availability; the inbox shows queued, running, and failed fields. The main UI is at `http://127.0.0.1:3000/inbox`. The Python process must stay running for uploads, jobs, reviews, and exports.
+`GET http://127.0.0.1:8765/health` confirms the HTTP process is reachable. `GET /ready` also checks SQLite and the analysis workers. `GET /api/status` reports latest-job counts per field, worker availability, and whether `model.pth` is installed; the inbox shows queued, running, and failed fields and warns when analysis cannot start. The main UI is at `http://127.0.0.1:3000/inbox`. The Python process must stay running for uploads, jobs, reviews, and exports.
 
 The default data directory is `platform_data/`. Override it with `./linux-v1/run.sh service --data-dir /absolute/path`. Set `ATLAS_API_URL` for the Next.js process if the service uses a different loopback address or port. `ATLAS_API_TOKEN` can be set in **both** processes to authenticate Next.js to the Python API; the service requires a token if it is bound beyond localhost. This token is service authentication, not technician identity. Keep both processes on loopback and place any remotely accessed deployment behind a lab-managed TLS and user authentication gateway. The application currently trusts the reviewer name entered on the screen; it does not verify that identity.
 

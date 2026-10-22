@@ -22,6 +22,7 @@ export interface PlatformStatus {
   jobs: Record<"queued" | "running" | "succeeded" | "failed", number>;
   workers: number;
   worker_available: boolean;
+  model_installed: boolean;
 }
 
 export interface ColonyRecord {

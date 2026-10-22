@@ -81,7 +81,8 @@ def worker_loop(store: Store, model_path: Path, stop: threading.Event) -> None:
             stop.wait(1)
 
 
-def make_handler(store: Store, api_token: str | None = None, ready_check=None, worker_count: int = 1):
+def make_handler(store: Store, api_token: str | None = None, ready_check=None,
+                 worker_count: int = 1, model_path: Path | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "ColonyAtlas/0.2"
 
@@ -156,7 +157,8 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None, w
                 return
             if path == "/api/status":
                 self.reply(200, {"jobs": store.job_counts(), "workers": worker_count,
-                                 "worker_available": ready_check() if ready_check else True})
+                                 "worker_available": ready_check() if ready_check else True,
+                                 "model_installed": model_path.is_file() if model_path else False})
                 return
             match = FIELD_ROUTE.fullmatch(path)
             if not match:
@@ -321,7 +323,8 @@ def serve(host: str = "127.0.0.1", port: int = 8765, root: Path | None = None,
             worker.start()
             threads.append(worker)
     server = ThreadingHTTPServer((host, port), make_handler(
-        store, api_token, lambda: all(thread.is_alive() for thread in threads), len(threads)))
+        store, api_token, lambda: all(thread.is_alive() for thread in threads),
+        len(threads), PROJECT_ROOT / "model.pth"))
     server.daemon_threads = True
     LOG.info("Colony Atlas API listening on http://%s:%s", host, port)
     try:

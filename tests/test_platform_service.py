@@ -145,6 +145,7 @@ class PlatformServiceTests(unittest.TestCase):
         status, summary = self.request("GET", "/api/status")
         self.assertEqual(status, 200)
         self.assertEqual(summary["jobs"], {"queued": 3, "running": 0, "succeeded": 0, "failed": 0})
+        self.assertFalse(summary["model_installed"])
         with ThreadPoolExecutor(max_workers=3) as pool:
             claimed = list(pool.map(lambda _: self.store.claim_job(), range(3)))
         self.assertEqual({job["id"] for job in claimed}, {job["id"] for job in jobs})
