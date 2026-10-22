@@ -116,6 +116,7 @@ The output contains `plate_report.json`, `plate_report.csv`, and image specific 
 
 - Weak labels come from image statistics, which can reflect acquisition conditions rather than colony morphology. Manual or expert labels are needed for meaningful training.
 - There is no held out biological validation, expert agreement study, or cross lab evaluation in this repository. Reported scores must not be interpreted as validated colony quality.
+- An [evaluation protocol and CLI](docs/validation.md) are ready for independently annotated, held-out fields when partner data becomes available; no biological performance result is claimed here.
 - The main frontend can display live analysis output and save review decisions. The separate `/workspace` synthetic demo still contains validation, calibration, and retrieval previews without measured artifacts.
 - The local service has no verified user accounts, permissions, or multi-host job coordination yet. Online, integrity-checked backups cover its SQLite and filesystem storage; an optional systemd timer can schedule them.
 - The analysis uses fixed size, nonoverlapping tiles; its region grouping is a heuristic over nearby tile boxes. It is not colony segmentation.
