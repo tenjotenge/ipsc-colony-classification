@@ -106,7 +106,31 @@ class PlatformServiceTests(unittest.TestCase):
         self.assertNotEqual(first["id"], second["id"])
         self.assertEqual(first["image_path"], second["image_path"])
         self.assertEqual(len(list((Path(self.temp.name) / "images").glob("*.png"))), 1)
+        self.assertEqual(len(list((Path(self.temp.name) / "images").glob("*.preview.jpg"))), 1)
+        status, preview = self.request("GET", f"/api/fields/{first['id']}/preview")
+        self.assertEqual(status, 200)
+        with Image.open(io.BytesIO(preview)) as image:
+            self.assertEqual(image.format, "JPEG")
+            self.assertEqual(image.size, (32, 24))
         self.assertEqual(self.request("POST", "/api/fields", b"", {"X-Filename": "huge.png", "Content-Length": str(101 * 1024 * 1024)})[0], 413)
+
+    def test_tiff_preview_can_be_regenerated(self):
+        image = Image.new("I;16", (64, 32))
+        for x in range(64):
+            image.putpixel((x, 0), x * 1000)
+        buffer = io.BytesIO()
+        image.save(buffer, format="TIFF")
+        status, field = self.request("POST", "/api/fields", buffer.getvalue(), {"X-Filename": "field.tiff"})
+        self.assertEqual(status, 201)
+        preview = Path(self.temp.name) / "images" / f"{field['sha256']}.preview.jpg"
+        self.assertTrue(preview.is_file())
+        preview.unlink()
+        status, payload = self.request("GET", f"/api/fields/{field['id']}/preview")
+        self.assertEqual(status, 200)
+        with Image.open(io.BytesIO(payload)) as rendered:
+            self.assertEqual(rendered.mode, "L")
+            low, high = rendered.getextrema()
+            self.assertLess(low, high)
 
     def test_concurrent_job_requests_create_one_active_job(self):
         _, field = self.upload()

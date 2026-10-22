@@ -17,6 +17,7 @@ from urllib.parse import unquote, urlsplit
 
 from PIL import Image, UnidentifiedImageError
 
+from .preview import ensure_preview
 from .store import Store
 
 
@@ -25,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024
 MAX_IMAGE_PIXELS = 100_000_000
 IMAGE_TYPES = {"PNG": (".png", "image/png"), "JPEG": (".jpg", "image/jpeg"), "TIFF": (".tiff", "image/tiff")}
-FIELD_ROUTE = re.compile(r"^/api/fields/([0-9a-f]{32})(?:/(image|analysis|jobs|decisions|export))?$")
+FIELD_ROUTE = re.compile(r"^/api/fields/([0-9a-f]{32})(?:/(image|preview|analysis|jobs|decisions|export))?$")
 
 
 def process_one_job(store: Store, job: dict, model_path: Path) -> None:
@@ -172,6 +173,14 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None, w
                 extension = Path(field["image_path"]).suffix.lower()
                 mime = next((item[1] for item in IMAGE_TYPES.values() if item[0] == extension), "application/octet-stream")
                 self.send_file(store.root / field["image_path"], mime)
+            elif resource == "preview":
+                source = store.root / field["image_path"]
+                preview = source.with_name(f"{field['sha256']}.preview.jpg")
+                try:
+                    self.send_file(ensure_preview(source, preview), "image/jpeg")
+                except (OSError, ValueError):
+                    LOG.exception("preview unavailable field=%s", field_id)
+                    self.fail(503, "Preview is unavailable; download the source image")
             elif resource == "jobs":
                 self.reply(200, {"jobs": store.list_jobs(field_id)})
             elif resource == "analysis":
@@ -275,6 +284,10 @@ def make_handler(store: Store, api_token: str | None = None, ready_check=None, w
                 os.replace(temp_path, blob_path)
             else:
                 temp_path.unlink()
+            try:
+                ensure_preview(blob_path, blob_path.with_name(f"{digest}.preview.jpg"))
+            except (OSError, ValueError) as exc:
+                raise ValueError("Unable to render a review preview for this image") from exc
             field = store.add_field(filename, relative_path, digest, width, height)
             self.reply(201, field)
 
