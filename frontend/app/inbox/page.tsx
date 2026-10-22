@@ -31,6 +31,7 @@ export default function InboxPage() {
   }, [refresh]);
 
   async function importField(file: File) {
+    if (file.size > 100 * 1024 * 1024) { setError("Choose an image under 100 MB."); return; }
     setBusy(true);
     setError("");
     try {

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 const baseUrl = process.env.ATLAS_API_URL ?? "http://127.0.0.1:8765";
+const maxUploadBytes = 100 * 1024 * 1024;
 
 async function proxy(request: NextRequest, segments: string[], method: "GET" | "POST") {
   if (!segments.length || segments.some((part) => !/^[a-zA-Z0-9_-]+$/.test(part))) {
@@ -13,13 +15,22 @@ async function proxy(request: NextRequest, segments: string[], method: "GET" | "
   if (request.headers.has("x-filename")) headers.set("X-Filename", request.headers.get("x-filename")!);
   if (request.headers.has("x-filename-encoded")) headers.set("X-Filename-Encoded", request.headers.get("x-filename-encoded")!);
   if (process.env.ATLAS_API_TOKEN) headers.set("Authorization", `Bearer ${process.env.ATLAS_API_TOKEN}`);
+  const imageUpload = method === "POST" && segments.length === 1 && segments[0] === "fields";
+  if (imageUpload) {
+    const rawLength = request.headers.get("content-length");
+    if (!rawLength || !/^\d+$/.test(rawLength)) return NextResponse.json({ error: "Image length is required" }, { status: 411 });
+    const length = Number(rawLength);
+    if (length < 1 || length > maxUploadBytes) return NextResponse.json({ error: "Image exceeds the 100 MB upload limit" }, { status: 413 });
+    headers.set("Content-Length", rawLength);
+  }
   try {
     const response = await fetch(url, {
       method,
       headers,
-      body: method === "POST" ? await request.arrayBuffer() : undefined,
+      body: imageUpload ? request.body : method === "POST" ? await request.arrayBuffer() : undefined,
+      duplex: "half",
       cache: "no-store",
-    });
+    } as RequestInit & { duplex: "half" });
     const outputHeaders = new Headers();
     for (const name of ["content-type", "content-disposition", "cache-control"]) {
       const value = response.headers.get(name);
