@@ -12,6 +12,7 @@ Usage: linux-v1/run.sh check
        linux-v1/run.sh service [--data-dir DIR] [--workers 1-4]
        linux-v1/run.sh backup create|scheduled|verify|restore ...
        linux-v1/run.sh frontend
+       linux-v1/run.sh frontend-start
 EOF
 }
 
@@ -33,12 +34,19 @@ case "${1:-}" in
         ;;
     esac
     ;;
-  frontend)
+  frontend|frontend-start)
     if [[ ! -d "$root/frontend/node_modules" ]]; then
       echo "Missing frontend/node_modules. Run 'npm ci' in frontend/ first." >&2
       exit 1
     fi
     cd "$root/frontend"
+    if [[ "$1" == "frontend-start" ]]; then
+      if [[ ! -d "$root/frontend/.next" ]]; then
+        echo "Missing frontend/.next. Run 'npm run build' in frontend/ first." >&2
+        exit 1
+      fi
+      exec npm run start -- --hostname 127.0.0.1
+    fi
     exec npm run dev -- --hostname 127.0.0.1
     ;;
   -h|--help|help) usage ;;

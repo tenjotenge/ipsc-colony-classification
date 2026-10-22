@@ -1,6 +1,8 @@
 # Local platform operations
 
-The field inbox is designed for a single Linux host. Its two processes are the Python service (SQLite, image files, one analysis worker) and the Next.js server (browser UI and API proxy). Both bind to loopback by default. A lab deployment needs a local operator who can manage the host, protect the data directory, and install a trained model.
+The field inbox is designed for a single Linux host. Its two processes are the Python service (SQLite, image files, configurable local analysis workers) and the Next.js server (browser UI and API proxy). Both bind to loopback by default. A lab deployment needs a local operator who can manage the host, protect the data directory, and install a trained model.
+
+For a dedicated host, use the [single-host deployment guide](deployment.md) and its systemd units. The commands below are for local development and diagnosis.
 
 ## Start and check
 
@@ -32,7 +34,7 @@ Backups can run while the service is active. The command takes a consistent SQLi
 ./linux-v1/run.sh backup verify /secure/backups/atlas-2026-10-16.tar.gz
 ```
 
-For a timer or cron job, use `backup scheduled --data-dir platform_data --backup-dir /secure/backups`. It creates a verified archive with a UTC timestamp and unique suffix. To use the supplied systemd units, change the `ExecStart` path in `deploy/systemd/colony-atlas-backup.service` to the absolute checkout path, copy both units to `/etc/systemd/system/`, and create `/etc/colony-atlas/backup.env` containing `ATLAS_DATA_DIR=/absolute/data/path` and `ATLAS_BACKUP_DIR=/secure/backups`. Give that file and backup directory permissions appropriate for the service account. Then run `systemctl daemon-reload`, `systemctl enable --now colony-atlas-backup.timer`, and `systemctl start colony-atlas-backup.service` to confirm a first backup. The timer runs daily and catches missed runs after a restart. Monitor timer failures and free space; archives are never deleted automatically. Keep at least one copy off the host and test a restore periodically.
+For a timer or cron job, use `backup scheduled --data-dir platform_data --backup-dir /secure/backups`. It creates a verified archive with a UTC timestamp and unique suffix. The [single-host deployment guide](deployment.md) sets up the supplied systemd timer. It runs daily and catches missed runs after a restart. Monitor timer failures and free space; archives are never deleted automatically. Keep at least one copy off the host and test a restore periodically.
 
 Restore only into a **new, nonexistent** directory; the archive is verified before files are written and the restored directory is moved into place after extraction:
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=Colony Atlas technician web UI
+After=network.target colony-atlas-api.service
+Wants=colony-atlas-api.service
+
+[Service]
+Type=simple
+User=colony-atlas
+Group=colony-atlas
+WorkingDirectory=/opt/colony-atlas/frontend
+EnvironmentFile=/etc/colony-atlas/web.env
+ExecStart=/opt/colony-atlas/linux-v1/run.sh frontend-start
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/colony-atlas/frontend/.next
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -35,7 +35,7 @@ The repository now includes a local HTTP service for importing microscopy fields
 
 The service listens on `http://127.0.0.1:8765`. `GET /health` checks availability. Its current API accepts raw PNG, JPEG, or TIFF bytes at `POST /api/fields` with an `X-Filename` header; `POST /api/fields/{id}/jobs` queues analysis. `GET /api/fields/{id}/export` returns the field, latest analysis, and decision history. A trained `model.pth` must be installed before analysis jobs can succeed. The service is currently a single-machine research deployment and has no user authentication; do not expose its port on a shared network.
 
-See [local platform operations](docs/operations.md) for service checks, queue visibility, optional local workers, backup and restore, access boundaries, job recovery, and model provenance.
+See [local platform operations](docs/operations.md) for service checks, queue visibility, optional local workers, backup and restore, access boundaries, job recovery, and model provenance. The [single-host deployment guide](docs/deployment.md) includes production process units and access boundaries.
 
 Run the service and frontend in separate terminals:
 

@@ -1,0 +1,22 @@
+[Unit]
+Description=Colony Atlas local API and analysis workers
+After=network.target
+
+[Service]
+Type=simple
+User=colony-atlas
+Group=colony-atlas
+WorkingDirectory=/opt/colony-atlas
+EnvironmentFile=/etc/colony-atlas/api.env
+ExecStart=/opt/colony-atlas/linux-v1/run.sh service --data-dir ${ATLAS_DATA_DIR} --workers ${ATLAS_WORKERS}
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/colony-atlas
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
